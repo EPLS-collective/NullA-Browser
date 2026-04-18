@@ -1,0 +1,69 @@
+name: Build Windows Relase
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (YY.MM.N format, e.g. 26.4.1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: "6.10.2"
+          host: windows
+          target: desktop
+          arch: "win64_msvc2022_64"
+          modules: "qtwebengine qtwebchannel qtpositioning qtmultimedia"
+
+      - name: Add Qt bin to PATH
+        shell: powershell
+        run: |
+          $qtbin = "D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64/bin"
+          $env:PATH = "$qtbin;$env:PATH"
+
+      - name: Configure CMake
+        shell: cmd
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64" -DMOC_EXECUTABLE="D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64/bin/moc.exe"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Prepare deploy folder
+        run: |
+          mkdir build/NullA
+          copy build/bin/Release/NullA.exe build/NullA/
+
+      - name: Deploy Qt into package folder
+        run: windeployqt --release --no-translations --dir build/NullA build/NullA/NullA.exe
+
+      - name: Zip build (with folder)
+        shell: powershell
+        run: |
+          Compress-Archive -Path build/NullA -DestinationPath NullA-Windows.zip
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: NullA v${{ github.event.inputs.version }}
+          prerelease: false
+          files: NullA-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
