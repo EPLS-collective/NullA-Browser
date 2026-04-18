@@ -1,0 +1,58 @@
+name: Build Linux Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (YY.MM.N format, e.g. 26.4.1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: "6.10.2"
+          host: linux
+          target: desktop
+          arch: "linux_gcc_64"
+          modules: "qtwebengine qtwebchannel qtpositioning qtmultimedia"
+
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Prepare package folder
+        run: |
+          mkdir -p build/NullA
+          cp build/bin/NullA build/NullA/
+
+      - name: Deploy Qt dependencies
+        run: |
+          cd build/NullA
+          ldd NullA | grep "=> /" | awk '{print $3}' | xargs -I '{}' cp -v '{}' .
+
+      - name: Create tar.gz package
+        run: |
+          tar -czf NullA-Linux.tar.gz -C build NullA
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: NullA v${{ github.event.inputs.version }}
+          prerelease: false
+          files: NullA-Linux.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
