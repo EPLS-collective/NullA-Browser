@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>nulla_icon.png</file>
+        <file>nulla_load.png</file>
+        <file>mayday/a_las_barricadas.ogg</file>
+    </qresource>
+</RCC>
