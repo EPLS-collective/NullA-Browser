@@ -65,6 +65,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME} PRIVATE DEBUG_MODE)
 endif()
 
+if(WIN32)
+    target_sources(${PROJECT_NAME} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/nullA_browser/resources/icon.rc
+    )
+endif()
+
 message(STATUS "─────────────────────────────────")
 message(STATUS "Project: ${PROJECT_NAME}")
 message(STATUS "Version: ${PROJECT_VERSION}")
