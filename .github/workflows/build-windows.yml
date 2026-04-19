@@ -6,6 +6,7 @@ on:
       version:
         description: "Version (YY.MM.N format, e.g. 26.4.1)"
         required: true
+        type: string
 
 permissions:
   contents: write
