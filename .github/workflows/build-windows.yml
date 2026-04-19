@@ -53,11 +53,11 @@ jobs:
       - name: Deploy Qt into package folder
         run: windeployqt --release --no-translations --dir build/NullA build/NullA/NullA.exe
 
-      - name: Zip build (with folder)
+      - name: Zip build (correct structure)
         shell: powershell
         run: |
-          cd build
-          Compress-Archive -Path NullA -DestinationPath ../NullA-Windows.zip
+          Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
+          [System.IO.Compression.ZipFile]::CreateFromDirectory("build/NullA", "NullA-Windows.zip")
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
