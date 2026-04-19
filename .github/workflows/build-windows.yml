@@ -56,7 +56,8 @@ jobs:
       - name: Zip build (with folder)
         shell: powershell
         run: |
-          Compress-Archive -Path build/NullA -DestinationPath NullA-Windows.zip
+          cd build
+          Compress-Archive -Path NullA -DestinationPath ../NullA-Windows.zip
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
