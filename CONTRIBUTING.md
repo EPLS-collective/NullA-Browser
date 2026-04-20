@@ -59,7 +59,7 @@ The executable will be in ```build/bin/```.
 
 ## To Run
 
-./build/bin/NullA
+```./build/bin/NullA```
 
 On Windows: ```build\bin\NullA.exe```
 
@@ -67,7 +67,7 @@ On Windows: ```build\bin\NullA.exe```
 
 ## Contributing
 
-We welcome contributions of any kind. Code, bug reports, translations, design feedback—all of it helps.
+We welcome contributions of any kind. Code, bug reports, translations, design feedback all of it helps.
 
 If you're not sure where to start, open an issue and ask.
 
