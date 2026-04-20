@@ -7,7 +7,7 @@ Some parts of this process, including cloning and compiling, can take time depen
 ## Before You Start
 
 - An account on one of our repositories:
-  - [GitHub](https://github.com/Electus2000/NullA-Browser)
+  - [GitHub](https://github.com/EPLS-collective/NullA-Browser)
   - [Codeberg](https://codeberg.org/EPLS/NullA-Browser)
   - [Disroot](https://git.disroot.org/EPLS/NullA-Browser)
 - Basic familiarity with the command line
@@ -34,7 +34,7 @@ Some parts of this process, including cloning and compiling, can take time depen
 ## Getting the Source
 
 ```
-git clone https://github.com/Electus2000/NullA-Browser.git
+git clone https://github.com/EPLS-collective/NullA-Browser.git
 cd NullA-Browser
 ```
 
