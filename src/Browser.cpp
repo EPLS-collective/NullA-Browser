@@ -8,6 +8,7 @@
 #include "../include/Browser.h"
 #include "../include/Interceptor.h"
 #include "../include/DownloadManager.h"
+#include "../include/Render.h"
 #include <QNetworkAccessManager>
 #include <QWebEngineFullScreenRequest>
 #include <QWebEngineSettings>
@@ -251,6 +252,7 @@ Browser::Browser(const QString &initialUrl) {
     mainLayout->addWidget(tabWidget);
 
     connect(tabWidget, &QTabWidget::currentChanged, this, &Browser::handleTabChange);
+
     connect(tabWidget, &TabWidget::tabCloseRequested, this, &Browser::closeTab);
 
     if (bar) {
@@ -367,6 +369,15 @@ Browser::Browser(const QString &initialUrl) {
             }
         });
     }
+
+    renderController = new RenderController(this);
+
+    connect(renderController, &RenderController::frameReady, this, [this]() {
+
+        if (auto* page = currentTabPage()) {
+            page->webView()->update();
+        }
+    });
 
     // May Day event
     maydayPlayer = new QMediaPlayer(this);
@@ -900,6 +911,11 @@ void Browser::handleTabChange(int index) {
         urlBar->setCursorPosition(0);
 
         checkAndUpdateFavoriteButton();
+
+        if (renderController) {
+            renderController->enable(true);
+            renderController->request();
+        }
     }
 }
 
@@ -1130,6 +1146,10 @@ void Browser::addNewTab() {
             urlBar->setText(u.toString());
             urlBar->setCursorPosition(0);
             checkAndUpdateFavoriteButton();
+        }
+        if (renderController) {
+            renderController->enable(true);
+            renderController->request();
         }
     });
 
