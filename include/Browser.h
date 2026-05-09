@@ -25,6 +25,7 @@
 #include "TabPage.h"
 #include "SettingsDialog.h"
 #include "DownloadManager.h"
+#include "Render.h"
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include <QToolBar>
@@ -102,6 +103,8 @@ private:
     QMenu* bookmarkContextMenu;
     void showBookmarkContextMenu(const QPoint& pos);
     void removeBookmark(const QString& url);
+
+    RenderController* renderController;
 
     QMap<QString, QString> searchEngines;
     QString currentSearchEngine;

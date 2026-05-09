@@ -30,4 +30,4 @@ private:
     mutable QMutex mutex;
 };
 
-#endif // ADBLOCKINTERCEPTOR_H
+#endif // INTERCEPTOR_H
