@@ -1,0 +1,14 @@
+{
+    "bookmark_del": "test",
+    "mayday_title": "test",
+    "mayday_desc": "test",
+    "perm_title": "test",
+    "perm_desc": "test",
+    "allow": "test",
+    "deny": "test",
+    "new_tab": "test",
+    "mic": "test",
+    "cam": "test",
+    "screen": "test",
+    "audio": "test"
+}

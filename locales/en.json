@@ -1,0 +1,18 @@
+{
+    "bookmark_del": "Delete Bookmark",
+    "mayday_title": "Today May 1st",
+    "mayday_desc": "No barricade stands against unity.",
+    "perm_title": "Permission Request",
+    "perm_desc": "%1 wants to access your %2",
+    "stadus_cncl": "Cancel which one? (Press 1-%1): ",
+    "allow": "Allow",
+    "deny": "Deny",
+    "new_tab": "New Tab",
+    "mic": "Microphone",
+    "cam": "Camera",
+    "cam_mic": "Camera + Microphone",
+    "screen": "Screen (Video)",
+    "screen_audio": "Screen + Audio",
+    "audio": "Audio",
+    "unk": "Unknown feature"
+}

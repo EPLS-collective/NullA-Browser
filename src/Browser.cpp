@@ -7,6 +7,7 @@
 
 #include "../include/Browser.h"
 #include "../include/Interceptor.h"
+#include "../include/Localization.h"
 #include "../include/DownloadManager.h"
 #include "../include/Render.h"
 #include <QNetworkAccessManager>
@@ -59,6 +60,9 @@ Browser::Browser(const QString &initialUrl) {
     profile->setPersistentStoragePath(dataPath);
     profile->setCachePath(dataPath + "/Cache");
     profile->setHttpCacheMaximumSize(100 * 1024 * 1024); // Cap cache at 100MB
+
+    QString savedLang = settings->value("language", "en").toString();
+    Localization::loadLanguage(savedLang.toStdString());
 
     auto *store = profile->cookieStore();
 
@@ -239,7 +243,7 @@ Browser::Browser(const QString &initialUrl) {
     loadBookmarks();
 
     bookmarkContextMenu = new QMenu(this);
-    QAction* deleteAction = bookmarkContextMenu->addAction("Delete Bookmark");
+    QAction* deleteAction = bookmarkContextMenu->addAction(Localization::qget("bookmark_del"));
     connect(deleteAction, &QAction::triggered, this, [this]() {
         QListWidgetItem* currentItem = suggestionList->currentItem();
         if (currentItem) {
@@ -351,7 +355,7 @@ Browser::Browser(const QString &initialUrl) {
             m_downloadManager->cancelDownload(0);
         } else {
             isWaitingForCancelInput = true;
-            statusBar()->showMessage(QString("Cancel which one? (Press 1-%1): ").arg(m_downloadManager->activeCount()));
+            statusBar()->showMessage(QString(Localization::qget("stadus_cncl")).arg(m_downloadManager->activeCount()));
         }
     });
 
@@ -398,7 +402,7 @@ Browser::Browser(const QString &initialUrl) {
             settings->setValue("mayday/lastPlayedYear", now.year());
             maydayActive = true;
             maydayPlayer->play();
-            QMessageBox::information(this, "Today May 1st", "No barricade stands against unity.");
+            QMessageBox::information(this, Localization::qget("mayday_title"), Localization::qget("mayday_desc"));
         }
     });
 
@@ -1057,35 +1061,35 @@ void Browser::addNewTab() {
 
         switch (type) {
             case QWebEnginePermission::PermissionType::MediaAudioCapture:
-                featureName = "Microphone";
+                featureName = Localization::qget("mic");
                 break;
             case QWebEnginePermission::PermissionType::MediaVideoCapture:
-                featureName = "Camera";
+                featureName = Localization::qget("cam");
                 break;
             case QWebEnginePermission::PermissionType::MediaAudioVideoCapture:
-                featureName = "Camera + Microphone";
+                featureName = Localization::qget("cam_mic");
                 break;
             case QWebEnginePermission::PermissionType::DesktopVideoCapture:
-                featureName = "Screen (Video)";
+                featureName = Localization::qget("screen");
                 break;
             case QWebEnginePermission::PermissionType::DesktopAudioVideoCapture:
-                featureName = "Screen + Audio";
+                featureName = Localization::qget("screen_audio");
                 break;
             default:
-                featureName = "Unknown feature";
+                featureName = Localization::qget("unknown_feat");
                 break;
         }
 
         QMessageBox msgBox(this);
         msgBox.setWindowTitle("Permission Request");
-        msgBox.setText(origin + " wants to access your " + featureName);
+        msgBox.setText(QString("%1 wants to access your %2").arg(origin).arg(featureName));
 
         QCheckBox* rememberBox = new QCheckBox("Remember this decision");
         rememberBox->setChecked(false);
         msgBox.setCheckBox(rememberBox);
 
-        QPushButton* allowBtn = msgBox.addButton("Allow", QMessageBox::AcceptRole);
-        msgBox.addButton("Deny", QMessageBox::RejectRole);
+        QPushButton* allowBtn = msgBox.addButton(Localization::qget("allow"), QMessageBox::AcceptRole);
+        msgBox.addButton(Localization::qget("deny"), QMessageBox::RejectRole);
 
         msgBox.exec();
 
@@ -1136,7 +1140,7 @@ void Browser::addNewTab() {
     connect(page, &TabPage::titleChanged, this, [this, page](const QString& t) {
         int i = tabWidget->indexOf(page);
         if (i != -1) {
-            QString title = t.isEmpty() ? "New Tab" : t;
+            QString title = t.isEmpty() ? Localization::qget("new_tab") : t;
             tabWidget->setTabText(i, title);
         }
     });

@@ -25,6 +25,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include "../include/SettingsDialog.h"
+#include "../include/Localization.h"
 
 SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
 : QDialog(parent), m_profile(profile) {
@@ -113,10 +114,8 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
                 return;
             }
 
-            // comboBox’tan sil
             searchCombo->removeItem(index);
 
-            // settings’ten sil
             QStringList engines = settings->value("customSearchEngines").toStringList();
             for(int i = 0; i < engines.size(); ++i) {
                 QStringList parts = engines[i].split("|");
@@ -153,6 +152,46 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     layout->addWidget(themeTitle);
     addDescription("Your system theme comes by default (dark/light)", layout);
     layout->addLayout(themeLayout);
+
+    QLabel* languageTitle = new QLabel("Language");
+    languageTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
+
+    QHBoxLayout* languageLayout = new QHBoxLayout();
+    QLabel* languageLabel = new QLabel("Language:");
+    languageLabel->setFixedWidth(60);
+    languageLabel->setStyleSheet("background: none;");
+
+    QComboBox* languageCombo = new QComboBox();
+    languageCombo->setMinimumHeight(30);
+
+    languageCombo->addItem("English", "en");
+    languageCombo->addItem("Türkçe", "tr");
+
+    QString savedLang = QString::fromStdString(Localization::currentLanguage());
+
+    int langIndex = languageCombo->findData(savedLang);
+    if(langIndex != -1)
+        languageCombo->setCurrentIndex(langIndex);
+
+    connect(languageCombo, &QComboBox::currentIndexChanged, this, [this, languageCombo](int i) {
+
+        QString lang = languageCombo->itemData(i).toString();
+
+        QSettings settings("NullA", "Browser");
+        settings.setValue("language", lang);
+
+        Localization::loadLanguage(lang.toStdString());
+
+        QMessageBox::information(this, "Language",
+                                 "Language changed. Restart may be required.");
+    });
+
+    languageLayout->addWidget(languageLabel);
+    languageLayout->addWidget(languageCombo, 1);
+
+    layout->addWidget(languageTitle);
+    addDescription("Select application language", layout);
+    layout->addLayout(languageLayout);
 
     QLabel* permissionsTitle = new QLabel("Site Permissions");
     permissionsTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");

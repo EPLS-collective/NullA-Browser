@@ -67,9 +67,15 @@ endif()
 
 if(WIN32)
     target_sources(${PROJECT_NAME} PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon.rc
+        ${CMAKE_CURRENT_SOURCE_DIR}/nullA_browser/resources/icon.rc
     )
 endif()
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_CURRENT_SOURCE_DIR}/locales"
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/locales"
+)
 
 message(STATUS "─────────────────────────────────")
 message(STATUS "Project: ${PROJECT_NAME}")

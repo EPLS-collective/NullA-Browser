@@ -5,9 +5,10 @@
  * See LICENSE file in the project root for full terms.
  */
 
-#pragma once
 #ifndef RENDER_H
 #define RENDER_H
+
+#pragma once
 
 #include <QObject>
 
