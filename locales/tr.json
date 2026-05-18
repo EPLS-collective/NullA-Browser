@@ -1,14 +1,107 @@
 {
-    "bookmark_del": "test",
-    "mayday_title": "test",
-    "mayday_desc": "test",
-    "perm_title": "test",
-    "perm_desc": "test",
-    "allow": "test",
-    "deny": "test",
-    "new_tab": "test",
-    "mic": "test",
-    "cam": "test",
-    "screen": "test",
-    "audio": "test"
+    "nulla_setting": "NullA Ayarları",
+    "search_engine_title": "Arama Motoru",
+    "engine_label": "Motor:",
+    "engine_desc": "Buraya eklediğin arama motorları sağ tık menüsü ile silinebilir. Motor ekleme kısmında '%s' kullanmayı unutma.",
+    "appearance_title": "Görünüm",
+    "theme_label": "Tema:",
+    "theme_desc": "Sistem teması varsayılan olarak kullanılır (koyu/açık)",
+
+    "bookmark_del": "Yer İşaretini Sil",
+
+    "mayday_title": "Bugün 1 Mayıs",
+    "mayday_desc": "Birlik oldukça hiçbir barikat duramaz.",
+
+    "perm_title": "İzin İsteği",
+    "perm_desc": "%1 %2 erişimi istiyor",
+
+    "stadus_cncl": "Hangisi iptal edilsin? (1-%1 tuşla): ",
+
+    "allow": "İzin Ver",
+    "deny": "Reddet",
+
+    "new_tab": "Yeni Sekme",
+
+    "mic": "Mikrofon",
+    "cam": "Kamera",
+    "cam_mic": "Kamera + Mikrofon",
+    "screen": "Ekran (Video)",
+    "screen_audio": "Ekran + Ses",
+    "audio": "Ses",
+    "unk": "Bilinmeyen özellik",
+
+    "add_engine": "Motor Ekle",
+    "delete_engine": "Motoru Sil",
+    "cannot_delete": "Silinemez",
+    "cannot_delete_desc": "Bu arama motoru silinemez.",
+
+    "light": "Açık",
+    "dark": "Koyu",
+
+    "language_title": "Dil",
+    "language_label": "Dil:",
+    "language_desc": "Tarayıcı dilini mevcut seçenekler arasından seçin. Dil değiştirildiğinde arayüz metinleri menüler, ayarlar, diyaloglar ve sistem mesajları dahil olmak üzere güncellenir. Değişikliklerin etkili olması için tarayıcıyı yeniden başlatın.",
+    "language_changed_title": "Dil",
+    "language_changed_desc": "Dil değiştirildi. Yeniden başlatma gerekebilir.",
+
+    "permissions_title": "Site İzinleri",
+    "permissions_desc": "İzinler, web sitelerinin donanımınıza (Kamera, Mikrofon vb.) erişmesini sağlar. Gizliliğiniz için bu listeyi düzenli olarak kontrol etmeniz ve güvenmediğiniz siteleri kaldırmanız önerilir. İzinler sağ tık menüsü ile silinebilir.",
+
+    "allowed": "İzin Verildi",
+    "denied": "Reddedildi",
+
+    "cookies_title": "Çerezler",
+    "cookies_desc": "Çerezler web sitelerinin sizi hatırlamasını sağlar. Daha iyi gizlilik için tekil çerezleri, belirli bir domaine ait tüm çerezleri veya hepsini sağ tık menüsü ile silebilirsiniz.",
+
+    "manage_title": "Tarayıcı Yönetimi",
+
+    "webgl_label": "WebGL:",
+    "javascript_label": "JavaScript:",
+    "cache_mode_label": "Bellek Modu:",
+
+    "enabled": "Aktif",
+    "disabled": "Pasif",
+
+    "cache_none": "Önbelleksiz",
+    "cache_disk": "Disk",
+    "cache_memory": "Bellek",
+
+    "clear_cache": "Önbelleği temizle",
+    "reset_browser": "NullA Tarayıcıyı Sıfırla",
+
+    "webgl_desc": "WebGL, sitelerin 3D grafikler için ekran kartını kullanmasını sağlar. Harita ve oyunlarda performans artırır ancak donanım parmak izi (fingerprinting) için de kullanılabilir. WebGL açık kalsa bile NullA Browser gönderilen bilgileri değiştirir veya bozar.",
+
+    "javascript_desc": "JavaScript çoğu modern web sitesinin çalışması için gereklidir. Kapatılması en yüksek gizlilik ve güvenlik sağlar ancak çoğu etkileşimli siteyi bozabilir.",
+
+    "cache_desc": "'Bellek' modu hızı ve gizliliği dengeleyerek çıkışta verileri siler. 'Disk' modu daha hızlı yükleme için verileri saklar. 'Önbelleksiz' mod hiçbir site verisini saklamaz ve en yüksek gizliliği sağlar ancak hızdan ödün verir.",
+
+    "credits_title": "NullA Katkı Sağlayanlar",
+    "credits_text": "NullA Browser v26.04.1\n\nGeliştiren: EPLS (Electus Progressive Liberation Software)\n\nTeşekkürler:\nPitergolak (https://jakekleiner.itch.io/)\nFerryGames (https://ferry-games.itch.io/)\nLazarus\n\nNullA Browser'ı kullandığınız için teşekkürler!",
+
+    "delete_cookie": "Çerezi Sil",
+    "delete_domain_cookies": "Bu Domaine Ait Tüm Çerezleri Sil",
+    "delete_all_cookies": "Tüm Çerezleri Sil",
+
+    "delete_permission": "İzni Sil",
+    "delete_domain_permissions": "Bu Domaine Ait Tüm İzinleri Sil",
+    "delete_all_permissions": "Tüm İzinleri Sil",
+
+    "cache_cleared_title": "NullA Browser",
+    "cache_cleared_desc": "Önbellek temizlendi.",
+
+    "warning": "Uyarı",
+    "reset_warning": "Tüm çerezler, site verileri ve ayarlar silinecek. Emin misiniz?",
+
+    "yes": "Evet",
+    "no": "Hayır",
+
+    "reset_done_title": "NullA Browser",
+    "reset_done_desc": "NullA Browser sıfırlandı. Uygulama kapanacak.",
+
+    "add_search_engine_title": "Arama Motoru Ekle",
+    "engine_name": "Motor adı:",
+    "search_url": "Arama URL'si (%s sorgu için):",
+
+    "error": "Hata",
+    "url_must_contain": "URL %s içermelidir"
 }

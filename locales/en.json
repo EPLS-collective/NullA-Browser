@@ -1,18 +1,105 @@
 {
+    "nulla_setting": "NullA Settings",
+    "search_engine_title": "Search Engine",
+    "engine_label": "Engine:",
+    "engine_desc": "The search engines you add here can be deleted using the right-click menu. Remember to use '%s' in the add engine section.",
+    "appearance_title": "Appearance",
+    "theme_label": "Theme:",
+    "theme_desc": "Your system theme comes by default (dark/light)",
+
     "bookmark_del": "Delete Bookmark",
+
     "mayday_title": "Today May 1st",
     "mayday_desc": "No barricade stands against unity.",
+
     "perm_title": "Permission Request",
     "perm_desc": "%1 wants to access your %2",
+
     "stadus_cncl": "Cancel which one? (Press 1-%1): ",
+
     "allow": "Allow",
     "deny": "Deny",
+
     "new_tab": "New Tab",
+
     "mic": "Microphone",
     "cam": "Camera",
     "cam_mic": "Camera + Microphone",
     "screen": "Screen (Video)",
     "screen_audio": "Screen + Audio",
     "audio": "Audio",
-    "unk": "Unknown feature"
+    "unk": "Unknown feature",
+
+    "add_engine": "Add Engine",
+    "delete_engine": "Delete Engine",
+    "cannot_delete": "Cannot Delete",
+    "cannot_delete_desc": "This search engine cannot be deleted.",
+
+    "light": "Light",
+    "dark": "Dark",
+
+    "language_title": "Language",
+    "language_label": "Language:",
+    "language_desc": "Select the browser language from the available options. Changing the language will update the interface text throughout the browser, including menus, settings, dialogs, and system messages. Restart your browser for the changes to take effect.",
+    "language_changed_title": "Language",
+    "language_changed_desc": "Language changed. Restart may be required.",
+
+    "permissions_title": "Site Permissions",
+    "permissions_desc": "Permissions allow websites to access your hardware (Camera, Microphone, etc.). For your privacy, we recommend reviewing this list periodically and removing sites you no longer trust. Permissions can be deleted using the right-click menu",
+
+    "allowed": "Allowed",
+    "denied": "Denied",
+
+    "cookies_title": "Cookies",
+    "cookies_desc": "Cookies allow websites to remember you. For better privacy, you can delete individual cookies, all cookies from a specific domain, or clear everything via the right-click menu.",
+
+    "manage_title": "Browser Management",
+
+    "webgl_label": "WebGL:",
+    "javascript_label": "JavaScript:",
+    "cache_mode_label": "Cache Mode:",
+
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+
+    "cache_none": "No Cache",
+    "cache_disk": "Disk",
+    "cache_memory": "Memory",
+
+    "clear_cache": "Clear the cache",
+    "reset_browser": "Reset NullA Browser",
+
+    "webgl_desc": "WebGL allows sites to use your graphics card for 3D graphics. While it improves performance in maps and games, it can also be used to uniquely identify your hardware (Fingerprinting). Even if you leave WebGL enabled, NullA Browser will modify or corrupt the information that WebGL sends to websites.",
+
+    "javascript_desc": "JavaScript is required for most modern websites to function. Disabling it provides the highest level of privacy and security but will break most interactive sites.",
+
+    "cache_desc": "'Memory' cache balances speed and privacy by wiping data on exit, while 'Disk' persists data for faster loading. 'No Cache' ensures no site data is stored, providing the highest privacy at the cost of speed.",
+
+    "credits_title": "NullA Credits",
+    "credits_text": "NullA Browser v26.04.1\n\nDeveloped by EPLS (Electus Progressive Liberation Software)\n\nThanks to:\nPitergolak (https://jakekleiner.itch.io/)\nFerryGames (https://ferry-games.itch.io/)\nLazarus\n\nThank you for using NullA Browser!",
+
+    "delete_cookie": "Delete Cookie",
+    "delete_domain_cookies": "Delete All Cookies from This Domain",
+    "delete_all_cookies": "Delete All Cookies",
+
+    "delete_permission": "Delete Permission",
+    "delete_domain_permissions": "Delete All Permissions from This Domain",
+    "delete_all_permissions": "Delete All Permissions",
+
+    "cache_cleared_desc": "Cache cleared.",
+
+    "warning": "Warning",
+    "reset_warning": "All cookies, site data, and settings will be deleted. Are you sure?",
+
+    "yes": "Yes",
+    "no": "No",
+
+    "reset_done_desc": "NullA Browser has been reset. The application will close.",
+
+    "add_search_engine_title": "Add Search Engine",
+    "engine_name": "Engine name:",
+    "search_url": "Search URL (%s for query):",
+
+    "error": "Error",
+    "url_must_contain": "URL must contain %s"
 }

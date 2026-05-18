@@ -30,7 +30,7 @@
 SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
 : QDialog(parent), m_profile(profile) {
 
-    setWindowTitle("NullA Settings");
+    setWindowTitle(Localization::qget("nulla_setting"));
     setFixedWidth(380);
     setMinimumHeight(500);
 
@@ -57,11 +57,11 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     mainLayout->addWidget(scrollArea);
 
     // Search Engine Section
-    QLabel* searchTitle = new QLabel("Search Engine");
+    QLabel* searchTitle = new QLabel(Localization::qget("search_engine_title"));
     searchTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
 
     QHBoxLayout* searchLayout = new QHBoxLayout();
-    QLabel* searchLabel = new QLabel("Engine:");
+    QLabel* searchLabel = new QLabel(Localization::qget("engine_label"));
     searchLabel->setFixedWidth(60);
     searchLabel->setStyleSheet("background: none;");
 
@@ -89,7 +89,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
         settings->setValue("searchEngine", engine);
     });
 
-    QPushButton* addEngineBtn = new QPushButton("Add Engine");
+    QPushButton* addEngineBtn = new QPushButton(Localization::qget("add_engine"));
     addEngineBtn->setMinimumHeight(35);
 
     connect(addEngineBtn, &QPushButton::clicked, this, &SettingsDialog::addSearchEngine);
@@ -100,7 +100,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     searchCombo->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(searchCombo, &QComboBox::customContextMenuRequested, this, [this](const QPoint &pos){
         QMenu menu;
-        QAction* deleteAction = menu.addAction("Delete Engine");
+        QAction* deleteAction = menu.addAction(Localization::qget("delete_engine"));
 
         QAction* selectedAction = menu.exec(searchCombo->mapToGlobal(pos));
         if(selectedAction == deleteAction) {
@@ -110,7 +110,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
             QString engine = searchCombo->currentText();
 
             if(engine == "DuckDuckGo") {
-                QMessageBox::information(this, "Cannot Delete", "This search engine cannot be deleted.");
+                QMessageBox::information(this, Localization::qget("cannot_delete"), Localization::qget("cannot_delete_desc"));
                 return;
             }
 
@@ -129,36 +129,36 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     });
 
     layout->addWidget(searchTitle);
-    addDescription("The search engines you add here can be deleted using the right-click menu. Remember to use '%s' in the add engine section.", layout);
+    addDescription(Localization::qget("engine_desc"), layout);
     layout->addLayout(searchLayout);
     layout->addWidget(addEngineBtn);
 
     // Theme Selection
-    QLabel* themeTitle = new QLabel("Appearance");
+    QLabel* themeTitle = new QLabel(Localization::qget("appearance_title"));
     themeTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
 
     QHBoxLayout* themeLayout = new QHBoxLayout();
     themeLayout->setContentsMargins(0, 5, 0, 5);
-    QLabel* themeLabel = new QLabel("Theme:");
+    QLabel* themeLabel = new QLabel(Localization::qget("theme_label"));
     themeLabel->setFixedWidth(60);
     themeLabel->setStyleSheet("background: none;");
     themeCombo = new QComboBox();
-    themeCombo->addItems({"Light", "Dark"});
+    themeCombo->addItems({Localization::qget("light"), Localization::qget("dark")});
     themeCombo->setMinimumHeight(30);
 
     themeLayout->addWidget(themeLabel);
     themeLayout->addWidget(themeCombo, 1);
 
     layout->addWidget(themeTitle);
-    addDescription("Your system theme comes by default (dark/light)", layout);
+    addDescription(Localization::qget("theme_desc"), layout);
     layout->addLayout(themeLayout);
 
-    QLabel* languageTitle = new QLabel("Language");
+    QLabel* languageTitle = new QLabel(Localization::qget("language_title"));
     languageTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
 
     QHBoxLayout* languageLayout = new QHBoxLayout();
-    QLabel* languageLabel = new QLabel("Language:");
-    languageLabel->setFixedWidth(60);
+    QLabel* languageLabel = new QLabel(Localization::qget("language_label"));
+    languageLabel->setFixedWidth(65);
     languageLabel->setStyleSheet("background: none;");
 
     QComboBox* languageCombo = new QComboBox();
@@ -182,18 +182,21 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
 
         Localization::loadLanguage(lang.toStdString());
 
-        QMessageBox::information(this, "Language",
-                                 "Language changed. Restart may be required.");
+        QMessageBox::information(
+            this,
+            Localization::qget("language_changed_title"),
+            Localization::qget("language_changed_desc")
+        );
     });
 
     languageLayout->addWidget(languageLabel);
     languageLayout->addWidget(languageCombo, 1);
 
     layout->addWidget(languageTitle);
-    addDescription("Select application language", layout);
+    addDescription(Localization::qget("language_desc"), layout);
     layout->addLayout(languageLayout);
 
-    QLabel* permissionsTitle = new QLabel("Site Permissions");
+    QLabel* permissionsTitle = new QLabel(Localization::qget("permissions_title"));
     permissionsTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
 
     QListWidget* permissionsList = new QListWidget();
@@ -201,7 +204,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     permissionsList->setMinimumHeight(120);
 
     layout->addWidget(permissionsTitle);
-    addDescription("Permissions allow websites to access your hardware (Camera, Microphone, etc.). For your privacy, we recommend reviewing this list periodically and removing sites you no longer trust. Permissions can be deleted using the right-click menu", layout);
+    addDescription(Localization::qget("permissions_desc"), layout);
     layout->addWidget(permissionsList);
 
     QStringList keys = settings->allKeys();
@@ -218,28 +221,28 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
 
         QString featureName;
 
-        switch(type) {
+        switch (type) {
             case QWebEnginePermission::PermissionType::MediaAudioCapture:
-                featureName = "Microphone";
+                featureName = Localization::qget("mic");
                 break;
             case QWebEnginePermission::PermissionType::MediaVideoCapture:
-                featureName = "Camera";
+                featureName = Localization::qget("cam");
                 break;
             case QWebEnginePermission::PermissionType::MediaAudioVideoCapture:
-                featureName = "Camera + Microphone";
+                featureName = Localization::qget("cam_mic");
                 break;
             case QWebEnginePermission::PermissionType::DesktopVideoCapture:
-                featureName = "Screen (Video)";
+                featureName = Localization::qget("screen");
                 break;
             case QWebEnginePermission::PermissionType::DesktopAudioVideoCapture:
-                featureName = "Screen + Audio";
+                featureName = Localization::qget("screen_audio");
                 break;
             default:
-                featureName = "Unknown";
+                featureName = Localization::qget("unknown_feat");
                 break;
         }
 
-        QString displayText = origin + " - " + featureName + " : " + (allowed ? "Allowed" : "Denied");
+        QString displayText = origin + " - " + featureName + " : " + (allowed ? Localization::qget("allowed") : Localization::qget("denied"));
 
         QListWidgetItem* item = new QListWidgetItem(displayText);
         item->setData(Qt::UserRole, key);
@@ -249,7 +252,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
 
     permissionsList->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    QLabel* cookiesTitle = new QLabel("Cookies");
+    QLabel* cookiesTitle = new QLabel(Localization::qget("cookies_title"));
     cookiesTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
 
     QListWidget* cookiesList = new QListWidget();
@@ -257,21 +260,21 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     cookiesList->setMinimumHeight(120);
 
     layout->addWidget(cookiesTitle);
-    addDescription("Cookies allow websites to remember you. For better privacy, you can delete individual cookies, all cookies from a specific domain, or clear everything via the right-click menu.", layout);
+    addDescription(Localization::qget("cookies_desc"), layout);
     layout->addWidget(cookiesList);
 
     // Browser Management
-    QLabel* manageTitle = new QLabel("Browser Management");
+    QLabel* manageTitle = new QLabel(Localization::qget("manage_title"));
     manageTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
 
     // WebGL
     QHBoxLayout* webglLayout = new QHBoxLayout();
-    QLabel* webglLabel = new QLabel("WebGL:");
+    QLabel* webglLabel = new QLabel(Localization::qget("webgl_label"));
     webglLabel->setFixedWidth(60);
     webglLabel->setStyleSheet("background: none;");
 
     QComboBox* webglCombo = new QComboBox();
-    webglCombo->addItems({"Enabled", "Disabled"});
+    webglCombo->addItems({Localization::qget("enabled"), Localization::qget("disabled")});
     webglCombo->setCurrentIndex(settings->value("enableWebGL", true).toBool() ? 0 : 1);
 
     webglLayout->addWidget(webglLabel);
@@ -279,48 +282,48 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
 
     // JS
     QHBoxLayout* jsLayout = new QHBoxLayout();
-    QLabel* jsLabel = new QLabel("JavaScript:");
-    jsLabel->setFixedWidth(60);
+    QLabel* jsLabel = new QLabel(Localization::qget("javascript_label"));
+    jsLabel->setFixedWidth(65);
     jsLabel->setStyleSheet("background: none;");
 
     QComboBox* jsCombo = new QComboBox();
-    jsCombo->addItems({"Enabled", "Disabled"});
+    jsCombo->addItems({Localization::qget("enabled"), Localization::qget("disabled")});
     jsCombo->setCurrentIndex(settings->value("enableJS", true).toBool() ? 0 : 1);
 
     jsLayout->addWidget(jsLabel);
     jsLayout->addWidget(jsCombo, 1);
 
     QHBoxLayout* cacheLayout = new QHBoxLayout();
-    QLabel* cacheLabel = new QLabel("Cache Mode:");
+    QLabel* cacheLabel = new QLabel(Localization::qget("cache_mode_label"));
     cacheLabel->setFixedWidth(90);
     cacheLabel->setStyleSheet("background: none;");
 
     cacheCombo = new QComboBox();
-    cacheCombo->addItems({"No Cache", "Disk", "Memory"}); // 0=No Cache,1=Disk,2=Memory
+    cacheCombo->addItems({Localization::qget("cache_none"), Localization::qget("cache_disk"), Localization::qget("cache_memory")}); // 0=No Cache,1=Disk,2=Memory
     int savedCacheMode = settings->value("cacheMode", 1).toInt(); // default Disk
     cacheCombo->setCurrentIndex(savedCacheMode);
     cacheLayout->addWidget(cacheLabel);
     cacheLayout->addWidget(cacheCombo, 1);
 
-    QPushButton* clearCacheBtn = new QPushButton("Clear the cache");
-    QPushButton* resetProfileBtn = new QPushButton("Reset NullA Browser");
+    QPushButton* clearCacheBtn = new QPushButton(Localization::qget("clear_cache"));
+    QPushButton* resetProfileBtn = new QPushButton(Localization::qget("reset_browser"));
+    resetProfileBtn->setObjectName("resetBrowserButton");
 
     clearCacheBtn->setMinimumHeight(35);
     clearCacheBtn->setVisible(savedCacheMode == 1);
     resetProfileBtn->setMinimumHeight(35);
 
     layout->addWidget(manageTitle);
-    addDescription("WebGL allows sites to use your graphics card for 3D graphics. While it improves performance in maps and games, it can also be used to uniquely identify your hardware (Fingerprinting). Even if you leave WebGL enabled, NullA Browser will modify or corrupt the information that WebGL sends to websites.", layout);
+    addDescription(Localization::qget("webgl_desc"), layout);
     layout->addLayout(webglLayout);
-    addDescription("JavaScript is required for most modern websites to function. Disabling it provides the highest level of privacy and security but will break most interactive sites.", layout);
+    addDescription(Localization::qget("javascript_desc"), layout);
     layout->addLayout(jsLayout);
-    addDescription("'Memory' cache balances speed and privacy by wiping data on exit, while 'Disk' persists data for faster loading. 'No Cache' ensures no site data is stored, providing the highest privacy at the cost of speed.", layout);
+    addDescription(Localization::qget("cache_desc"), layout);
     layout->addLayout(cacheLayout);
     layout->addWidget(clearCacheBtn);
     layout->addWidget(resetProfileBtn);
     layout->addStretch();
 
-    this->setWindowFlags(this->windowFlags() | Qt::WindowContextHelpButtonHint);
     this->setContextMenuPolicy(Qt::CustomContextMenu);
 
     struct CreditsData {
@@ -345,16 +348,8 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
             creditsData->clickCount = 0;
             creditsData->timer->stop();
 
-            QMessageBox::information(this, "NullA Credits",
-            "NullA Browser v26.04.1\n\n"
-            "Developed by EPLS (Electus Progressive Liberation Software)\n"
-            "\n"
-            "Thanks to:\n"
-            "Pitergolak (https://jakekleiner.itch.io/)\n"
-            "FerryGames (https://ferry-games.itch.io/)\n"
-            "Lazarus\n"
-            "\n"
-            "Thank you for using NullA Browser!");
+            QMessageBox::information(this, Localization::qget("credits_title"),
+            Localization::qget("credits_text"));
         }
     });
 
@@ -386,9 +381,9 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
         if(!item) return;
 
         QMenu menu;
-        QAction* deleteAction = menu.addAction("Delete Cookie");
-        QAction* deleteDomainAction = menu.addAction("Delete All Cookies from This Domain");
-        QAction* deleteAllAction = menu.addAction("Delete All Cookies");
+        QAction* deleteAction = menu.addAction(Localization::qget("delete_cookie"));
+        QAction* deleteDomainAction = menu.addAction(Localization::qget("delete_domain_cookies"));
+        QAction* deleteAllAction = menu.addAction(Localization::qget("delete_all_cookies"));
 
         QAction* selectedAction = menu.exec(cookiesList->mapToGlobal(pos));
         if(!selectedAction) return;
@@ -429,9 +424,9 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
         if(!item) return;
 
         QMenu menu;
-        QAction* deleteAction = menu.addAction("Delete Permission");
-        QAction* deleteDomainAction = menu.addAction("Delete All Permissions from This Domain");
-        QAction* deleteAllAction = menu.addAction("Delete All Permissions");
+        QAction* deleteAction = menu.addAction(Localization::qget("delete_permission"));
+        QAction* deleteDomainAction = menu.addAction(Localization::qget("delete_domain_permissions"));
+        QAction* deleteAllAction = menu.addAction(Localization::qget("delete_all_permissions"));
 
         QAction* selectedAction = menu.exec(permissionsList->mapToGlobal(pos));
         if(!selectedAction) return;
@@ -507,12 +502,12 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
 
     connect(clearCacheBtn, &QPushButton::clicked, this, [this]() {
         m_profile->clearHttpCache();
-        QMessageBox::information(this, "NullA Browser", "Cache cleared.");
+        QMessageBox::information(this, "NullA Browser", Localization::qget("cache_cleared_desc"));
     });
 
     connect(resetProfileBtn, &QPushButton::clicked, this, [this]() {
-        auto result = QMessageBox::warning(this, "Warning",
-                                           "All cookies, site data, and settings will be deleted. Are you sure?",
+        auto result = QMessageBox::warning(this, Localization::qget("warning"),
+                                           Localization::qget("reset_warning"),
                                            QMessageBox::Yes | QMessageBox::No);
 
         if(result == QMessageBox::Yes) {
@@ -539,7 +534,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
             m_profile->setHttpCacheType(QWebEngineProfile::MemoryHttpCache);
 
             QMessageBox::information(this, "NullA Browser",
-                                     "NullA Browser has been reset. The application will close.");
+                                     Localization::qget("reset_done_desc"));
             qApp->quit();
         }
     });
@@ -618,7 +613,7 @@ void SettingsDialog::updateTheme(int themeIndex) {
             background-color: %6;
             border: 1px solid #0078d4;
         }
-        QPushButton[text="Reset NullA Browser"] {
+        QPushButton#resetBrowserButton {
             color: #ff5555;
         }
         QListWidget {
@@ -633,7 +628,6 @@ void SettingsDialog::updateTheme(int themeIndex) {
             border-bottom: 1px solid %4;
             color: %2;
         }
-        /* Renk değişmesin dediğin kısım */
         QListWidget::item:selected, QListWidget::item:selected:active {
             background-color: transparent;
             color: %2;
@@ -702,8 +696,8 @@ void SettingsDialog::addSearchEngine() {
 
     QString name = QInputDialog::getText(
         this,
-        "Add Search Engine",
-        "Engine name:",
+        Localization::qget("add_search_engine_title"),
+        Localization::qget("engine_name"),
         QLineEdit::Normal,
         "",
         &ok
@@ -714,15 +708,15 @@ void SettingsDialog::addSearchEngine() {
 
     QString url = QInputDialog::getText(
         this,
-        "Add Search Engine",
-        "Search URL (%s for query):",
+        Localization::qget("add_search_engine_title"),
+        Localization::qget("search_url"),
         QLineEdit::Normal,
         "https://example.com/search?q=%s",
         &ok
     );
 
     if(!ok || !url.contains("%s")) {
-        QMessageBox::warning(this, "Error", "URL must contain %s");
+        QMessageBox::warning(this, Localization::qget("error"), Localization::qget("url_must_contain"));
         return;
     }
 
