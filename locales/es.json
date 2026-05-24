@@ -1,0 +1,123 @@
+{
+    "nulla_setting": "Configuración de NullA",
+    "search_engine_title": "Motor de búsqueda",
+    "engine_label": "Motor:",
+    "engine_desc": "Los motores de búsqueda que agregas aquí pueden eliminarse usando el menú del clic derecho. Recuerda usar '%s' en la sección de agregar motor.",
+    "appearance_title": "Apariencia",
+    "theme_label": "Tema:",
+    "theme_desc": "El tema de tu sistema viene por defecto (oscuro/claro)",
+
+    "bookmark_del": "Eliminar marcador",
+
+    "mayday_title": "Hoy 1 de mayo",
+    "mayday_desc": "Ninguna barricada se mantiene contra la unidad.",
+
+    "perm_title": "Solicitud de permiso",
+    "perm_desc": "%1 quiere acceder a tu %2",
+    "remember_perm": "Recordar esta decisión",
+
+    "stadus_cncl": "¿Cuál cancelar? (Presiona 1-%1): ",
+
+    "allow": "Permitir",
+    "deny": "Denegar",
+
+    "new_tab": "Nueva pestaña",
+
+    "mic": "Micrófono",
+    "cam": "Cámara",
+    "cam_mic": "Cámara + Micrófono",
+    "screen": "Pantalla (Video)",
+    "screen_audio": "Pantalla + Audio",
+    "audio": "Audio",
+    "unk": "Función desconocida",
+
+    "add_engine": "Agregar motor",
+    "delete_engine": "Eliminar motor",
+    "cannot_delete": "No se puede eliminar",
+    "cannot_delete_desc": "Este motor de búsqueda no se puede eliminar.",
+
+    "light": "Claro",
+    "dark": "Oscuro",
+
+    "language_title": "Idioma",
+    "language_label": "Idioma:",
+    "language_desc": "Selecciona el idioma del navegador desde las opciones disponibles. Al cambiar el idioma se actualiza toda la interfaz, incluidos menús, ajustes, diálogos y mensajes del sistema. Reinicia el navegador para aplicar los cambios.",
+    "language_changed_title": "Idioma",
+    "language_changed_desc": "Idioma cambiado. Puede requerir reinicio.",
+
+    "permissions_title": "Permisos del sitio",
+    "permissions_desc": "Los permisos permiten que los sitios accedan a tu hardware (cámara, micrófono, etc.). Para tu privacidad, se recomienda revisar esta lista periódicamente y eliminar sitios en los que ya no confíes. Los permisos pueden eliminarse usando el menú del clic derecho",
+
+    "allowed": "Permitido",
+    "denied": "Denegado",
+
+    "cookies_title": "Cookies",
+    "cookies_desc": "Las cookies permiten que los sitios te recuerden. Para mejor privacidad puedes eliminar cookies individuales, todas las de un dominio específico o todo desde el menú del clic derecho.",
+
+    "manage_title": "Gestión del navegador",
+
+    "webgl_label": "WebGL:",
+    "javascript_label": "JavaScript:",
+    "cache_mode_label": "Modo caché:",
+
+    "enabled": "Habilitado",
+    "disabled": "Deshabilitado",
+
+    "cache_none": "Sin caché",
+    "cache_disk": "Disco",
+    "cache_memory": "Memoria",
+
+    "clear_cache": "Borrar caché",
+    "reset_browser": "Restablecer NullA Browser",
+
+    "webgl_desc": "WebGL permite usar la tarjeta gráfica para gráficos 3D. Mejora el rendimiento pero puede usarse para fingerprinting. Incluso si está activado, NullA modifica o corrompe la información enviada por WebGL.",
+
+    "javascript_desc": "JavaScript es necesario para la mayoría de los sitios modernos. Desactivarlo proporciona máxima privacidad pero rompe la mayoría de sitios interactivos.",
+
+    "cache_desc": "'Memoria' equilibra velocidad y privacidad eliminando datos al salir, 'Disco' guarda datos para carga rápida. 'Sin caché' no almacena datos y ofrece máxima privacidad a costa de velocidad.",
+
+    "credits_title": "Créditos NullA",
+    "credits_text": "NullA Browser v26.05.1
+Desarrollado por EPLS (Electus Progressive Liberation Software)
+
+Gracias a:
+Pitergolak (https://jakekleiner.itch.io/)
+FerryGames (https://ferry-games.itch.io/)
+NothingXD_B
+Lazarus
+
+¡Gracias por usar NullA Browser!",
+
+    "delete_cookie": "Eliminar cookie",
+    "delete_domain_cookies": "Eliminar todas las cookies del dominio",
+    "delete_all_cookies": "Eliminar todas las cookies",
+
+    "delete_permission": "Eliminar permiso",
+    "delete_domain_permissions": "Eliminar todos los permisos del dominio",
+    "delete_all_permissions": "Eliminar todos los permisos",
+
+    "cache_cleared_desc": "Caché borrada.",
+
+    "warning": "Advertencia",
+    "reset_warning": "Todas las cookies, datos del sitio y configuraciones serán eliminados. ¿Estás seguro?",
+
+    "yes": "Sí",
+    "no": "No",
+
+    "reset_done_desc": "NullA Browser ha sido restablecido. La aplicación se cerrará.",
+
+    "add_search_engine_title": "Agregar motor de búsqueda",
+    "engine_name": "Nombre del motor:",
+    "search_url": "URL de búsqueda (%s para consulta):",
+
+    "error": "Error",
+    "url_must_contain": "La URL debe contener %s",
+
+    "mute_tab": "Silenciar pestaña",
+    "unmute_tab": "Activar sonido de la pestaña",
+    "reload_tab": "Recargar pestaña",
+    "close_tab": "Cerrar pestaña",
+    "close_other_tabs": "Cerrar otras pestañas",
+
+    "search": "Buscar..."
+}

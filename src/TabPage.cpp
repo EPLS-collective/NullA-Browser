@@ -9,6 +9,7 @@
 #include <QDebug>
 #include "../include/TabPage.h"
 #include "../include/Browser.h"
+#include "../include/Localization.h"
 
 class WebPage : public QWebEnginePage {
 public:
@@ -84,7 +85,7 @@ void TabPage::goBack() {
         } else {
             setCurrentIndex(0);
             emit urlChanged(QUrl(""));
-            emit titleChanged("New Tab");
+            emit titleChanged(Localization::qget("new_tab"));
             emit iconChanged(QIcon(":/nulla_icon.png"));
         }
     }

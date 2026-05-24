@@ -14,6 +14,7 @@
 
     "perm_title": "Permission Request",
     "perm_desc": "%1 wants to access your %2",
+    "remember_perm": "Remember this decision",
 
     "stadus_cncl": "Cancel which one? (Press 1-%1): ",
 
@@ -76,7 +77,16 @@
     "cache_desc": "'Memory' cache balances speed and privacy by wiping data on exit, while 'Disk' persists data for faster loading. 'No Cache' ensures no site data is stored, providing the highest privacy at the cost of speed.",
 
     "credits_title": "NullA Credits",
-    "credits_text": "NullA Browser v26.04.1\n\nDeveloped by EPLS (Electus Progressive Liberation Software)\n\nThanks to:\nPitergolak (https://jakekleiner.itch.io/)\nFerryGames (https://ferry-games.itch.io/)\nLazarus\n\nThank you for using NullA Browser!",
+    "credits_text": "NullA Browser v26.05.1
+Developed by EPLS (Electus Progressive Liberation Software)
+
+Thanks to:
+Pitergolak (https://jakekleiner.itch.io/)
+FerryGames (https://ferry-games.itch.io/)
+NothingXD_B
+Lazarus
+
+Thank you for using NullA Browser!",
 
     "delete_cookie": "Delete Cookie",
     "delete_domain_cookies": "Delete All Cookies from This Domain",
@@ -101,5 +111,13 @@
     "search_url": "Search URL (%s for query):",
 
     "error": "Error",
-    "url_must_contain": "URL must contain %s"
+    "url_must_contain": "URL must contain %s",
+
+    "mute_tab": "Mute Tab",
+    "mute_tab": "Unmute Tab",
+    "reload_tab": "Reload Tab",
+    "close_tab": "Close Tab",
+    "close_other_tabs": "Close Other Tabs",
+
+    "search": "Search..."
 }

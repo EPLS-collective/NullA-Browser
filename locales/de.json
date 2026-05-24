@@ -1,0 +1,123 @@
+{
+    "nulla_setting": "NullA Einstellungen",
+    "search_engine_title": "Suchmaschine",
+    "engine_label": "Suchmaschine:",
+    "engine_desc": "Die hier hinzugefügten Suchmaschinen können über das Rechtsklick-Menü gelöscht werden. Vergiss nicht '%s' im Abschnitt zum Hinzufügen zu verwenden.",
+    "appearance_title": "Erscheinungsbild",
+    "theme_label": "Thema:",
+    "theme_desc": "Dein Systemdesign kommt standardmäßig (dunkel/hell)",
+
+    "bookmark_del": "Lesezeichen löschen",
+
+    "mayday_title": "Heute 1. Mai",
+    "mayday_desc": "Keine Barrikade steht gegen die Einheit.",
+
+    "perm_title": "Berechtigungsanfrage",
+    "perm_desc": "%1 möchte auf dein %2 zugreifen",
+    "remember_perm": "Erinnere dich an diese Entscheidung",
+
+    "stadus_cncl": "Welche abbrechen? (Drücke 1-%1): ",
+
+    "allow": "Erlauben",
+    "deny": "Ablehnen",
+
+    "new_tab": "Neuer Tab",
+
+    "mic": "Mikrofon",
+    "cam": "Kamera",
+    "cam_mic": "Kamera + Mikrofon",
+    "screen": "Bildschirm (Video)",
+    "screen_audio": "Bildschirm + Audio",
+    "audio": "Audio",
+    "unk": "Unbekannte Funktion",
+
+    "add_engine": "Suchmaschine hinzufügen",
+    "delete_engine": "Suchmaschine löschen",
+    "cannot_delete": "Kann nicht gelöscht werden",
+    "cannot_delete_desc": "Diese Suchmaschine kann nicht gelöscht werden.",
+
+    "light": "Hell",
+    "dark": "Dunkel",
+
+    "language_title": "Sprache",
+    "language_label": "Sprache:",
+    "language_desc": "Wähle die Browsersprache aus den verfügbaren Optionen. Das Ändern der Sprache aktualisiert die gesamte Oberfläche, einschließlich Menüs, Einstellungen, Dialoge und Systemmeldungen. Neustart erforderlich.",
+    "language_changed_title": "Sprache",
+    "language_changed_desc": "Sprache geändert. Neustart kann erforderlich sein.",
+
+    "permissions_title": "Website-Berechtigungen",
+    "permissions_desc": "Berechtigungen erlauben Websites den Zugriff auf deine Hardware (Kamera, Mikrofon usw.). Für deine Privatsphäre wird empfohlen, diese Liste regelmäßig zu überprüfen.",
+
+    "allowed": "Erlaubt",
+    "denied": "Verweigert",
+
+    "cookies_title": "Cookies",
+    "cookies_desc": "Cookies erlauben Websites, sich an dich zu erinnern. Du kannst sie einzeln oder vollständig löschen.",
+
+    "manage_title": "Browser-Verwaltung",
+
+    "webgl_label": "WebGL:",
+    "javascript_label": "JavaScript:",
+    "cache_mode_label": "Cache-Modus:",
+
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+
+    "cache_none": "Kein Cache",
+    "cache_disk": "Festplatte",
+    "cache_memory": "Speicher",
+
+    "clear_cache": "Cache leeren",
+    "reset_browser": "NullA Browser zurücksetzen",
+
+    "webgl_desc": "WebGL nutzt die GPU für 3D-Grafik. Kann für Fingerprinting verwendet werden. NullA verändert die gesendeten Daten.",
+
+    "javascript_desc": "JavaScript ist für die meisten modernen Websites erforderlich. Deaktivieren bricht viele Seiten.",
+
+    "cache_desc": "'Speicher' löscht beim Beenden, 'Disk' speichert für Geschwindigkeit, 'Kein Cache' speichert nichts.",
+
+    "credits_title": "NullA Credits",
+    "credits_text": "NullA Browser v26.05.1
+Entwickelt von EPLS (Electus Progressive Liberation Software)
+
+Danke an:
+Pitergolak (https://jakekleiner.itch.io/)
+FerryGames (https://ferry-games.itch.io/)
+NothingXD_B
+Lazarus
+
+Danke, dass du NullA Browser benutzt!",
+
+    "delete_cookie": "Cookie löschen",
+    "delete_domain_cookies": "Alle Cookies dieser Domain löschen",
+    "delete_all_cookies": "Alle Cookies löschen",
+
+    "delete_permission": "Berechtigung löschen",
+    "delete_domain_permissions": "Alle Berechtigungen dieser Domain löschen",
+    "delete_all_permissions": "Alle Berechtigungen löschen",
+
+    "cache_cleared_desc": "Cache geleert.",
+
+    "warning": "Warnung",
+    "reset_warning": "Alle Cookies, Daten und Einstellungen werden gelöscht. Bist du sicher?",
+
+    "yes": "Ja",
+    "no": "Nein",
+
+    "reset_done_desc": "NullA Browser wurde zurückgesetzt. Die Anwendung wird geschlossen.",
+
+    "add_search_engine_title": "Suchmaschine hinzufügen",
+    "engine_name": "Suchmaschinenname:",
+    "search_url": "Such-URL (%s für Anfrage):",
+
+    "error": "Fehler",
+    "url_must_contain": "URL muss %s enthalten",
+
+    "mute_tab": "Tab stummschalten",
+    "unmute_tab": "Tab-Stummschaltung aufheben",
+    "reload_tab": "Tab neu laden",
+    "close_tab": "Tab schließen",
+    "close_other_tabs": "Andere Tabs schließen",
+
+    "search": "Suchen..."
+}

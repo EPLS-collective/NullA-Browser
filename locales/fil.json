@@ -1,0 +1,123 @@
+{
+    "nulla_setting": "Mga Setting ng NullA",
+    "search_engine_title": "Search Engine",
+    "engine_label": "Engine:",
+    "engine_desc": "Ang mga search engine na idinadagdag mo rito ay maaaring burahin gamit ang right-click menu. Tiyaking gamitin ang '%s' sa add engine section.",
+    "appearance_title": "Itsura",
+    "theme_label": "Tema:",
+    "theme_desc": "Ang iyong system theme ang ginagamit bilang default (madilim/maliwanag)",
+
+    "bookmark_del": "Burahin ang Bookmark",
+
+    "mayday_title": "Ngayon Mayo 1",
+    "mayday_desc": "Walang hadlang na makakatalo sa pagkakaisa.",
+
+    "perm_title": "Kahilingan ng Pahintulot",
+    "perm_desc": "Nais ng %1 na ma-access ang iyong %2",
+    "remember_perm": "Tandaan ang pasyang ito",
+
+    "stadus_cncl": "Alin ang ikakansela? (Pindutin ang 1-%1): ",
+
+    "allow": "Payagan",
+    "deny": "Tanggihan",
+
+    "new_tab": "Bagong Tab",
+
+    "mic": "Mikropono",
+    "cam": "Kamera",
+    "cam_mic": "Kamera + Mikropono",
+    "screen": "Screen (Video)",
+    "screen_audio": "Screen + Audio",
+    "audio": "Audio",
+    "unk": "Hindi kilalang feature",
+
+    "add_engine": "Magdagdag ng Engine",
+    "delete_engine": "Burahin ang Engine",
+    "cannot_delete": "Hindi Maaaring Burahin",
+    "cannot_delete_desc": "Hindi maaaring burahin ang search engine na ito.",
+
+    "light": "Maliwanag",
+    "dark": "Madilim",
+
+    "language_title": "Wika",
+    "language_label": "Wika:",
+    "language_desc": "Pumili ng wika ng browser mula sa mga available na opsyon. Kapag binago ang wika, maa-update ang lahat ng teksto sa interface kabilang ang mga menu, settings, dialog, at system messages. I-restart ang browser upang magkabisa ang pagbabago.",
+    "language_changed_title": "Wika",
+    "language_changed_desc": "Nabago ang wika. Maaaring kailanganin i-restart.",
+
+    "permissions_title": "Mga Pahintulot ng Site",
+    "permissions_desc": "Ang mga pahintulot ay nagbibigay sa mga website ng access sa iyong hardware (Kamera, Mikropono, atbp.). Para sa iyong privacy, mainam na regular itong suriin at alisin ang mga site na hindi na pinagkakatiwalaan. Maaaring burahin ang permissions gamit ang right-click menu",
+
+    "allowed": "Pinayagan",
+    "denied": "Tinanggihan",
+
+    "cookies_title": "Cookies",
+    "cookies_desc": "Ang cookies ay nagbibigay-daan sa mga website na maalala ka. Para sa mas mahusay na privacy, maaari mong burahin ang indibidwal na cookies, lahat ng cookies mula sa isang domain, o lahat ng cookies sa pamamagitan ng right-click menu.",
+
+    "manage_title": "Pamamahala ng Browser",
+
+    "webgl_label": "WebGL:",
+    "javascript_label": "JavaScript:",
+    "cache_mode_label": "Mode ng Cache:",
+
+    "enabled": "Naka-enable",
+    "disabled": "Naka-disable",
+
+    "cache_none": "Walang Cache",
+    "cache_disk": "Disk",
+    "cache_memory": "Memory",
+
+    "clear_cache": "Burahin ang cache",
+    "reset_browser": "I-reset ang NullA Browser",
+
+    "webgl_desc": "Ang WebGL ay nagpapahintulot sa mga website na gamitin ang iyong graphics card para sa 3D graphics. Bagama’t nakakatulong ito sa performance ng mga mapa at laro, maaari rin itong gamitin para tukuyin ang iyong hardware (fingerprinting). Kahit naka-enable ito, binabago o pinipinsala ng NullA Browser ang impormasyong ipinapadala ng WebGL sa mga website.",
+
+    "javascript_desc": "Kailangan ang JavaScript para gumana ang karamihan ng modernong website. Ang pag-disable nito ay nagbibigay ng pinakamataas na privacy at seguridad ngunit sisira sa karamihan ng interactive na site.",
+
+    "cache_desc": "Ang 'Memory' cache ay balanse sa bilis at privacy dahil binubura ang data paglabas, habang ang 'Disk' ay nagse-save para mas mabilis mag-load. Ang 'No Cache' ay hindi nag-iimbak ng data, nagbibigay ng pinakamataas na privacy ngunit mas mabagal.",
+
+    "credits_title": "Mga Kredito ng NullA",
+    "credits_text": "NullA Browser v26.05.1
+Binuo ng EPLS (Electus Progressive Liberation Software)
+
+Pasasalamat sa:
+Pitergolak (https://jakekleiner.itch.io/)
+FerryGames (https://ferry-games.itch.io/)
+NothingXD_B
+Lazarus
+
+Salamat sa paggamit ng NullA Browser!",
+
+    "delete_cookie": "Burahin ang Cookie",
+    "delete_domain_cookies": "Burahin Lahat ng Cookies mula sa Domain na Ito",
+    "delete_all_cookies": "Burahin Lahat ng Cookies",
+
+    "delete_permission": "Burahin ang Pahintulot",
+    "delete_domain_permissions": "Burahin Lahat ng Pahintulot mula sa Domain na Ito",
+    "delete_all_permissions": "Burahin Lahat ng Pahintulot",
+
+    "cache_cleared_desc": "Nabura ang cache.",
+
+    "warning": "Babala",
+    "reset_warning": "Lahat ng cookies, site data, at settings ay mabubura. Sigurado ka ba?",
+
+    "yes": "Oo",
+    "no": "Hindi",
+
+    "reset_done_desc": "Na-reset na ang NullA Browser. Magsasara ang application.",
+
+    "add_search_engine_title": "Magdagdag ng Search Engine",
+    "engine_name": "Pangalan ng Engine:",
+    "search_url": "Search URL (%s para sa query):",
+
+    "error": "Error",
+    "url_must_contain": "Dapat may %s ang URL",
+
+    "mute_tab": "I-mute ang Tab",
+    "unmute_tab": "I-unmute ang Tab",
+    "reload_tab": "I-reload ang Tab",
+    "close_tab": "Isara ang Tab",
+    "close_other_tabs": "Isara ang Ibang Tabs",
+
+    "search": "Maghanap..."
+}

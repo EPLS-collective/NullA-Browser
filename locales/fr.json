@@ -1,0 +1,124 @@
+{
+    "nulla_setting": "Paramètres NullA",
+    "search_engine_title": "Moteur de recherche",
+    "engine_label": "Moteur:",
+    "engine_desc": "Les moteurs de recherche que vous ajoutez ici peuvent être supprimés en utilisant le menu du clic droit. N'oubliez pas d'utiliser '%s' dans la section d'ajout de moteur.",
+    "appearance_title": "Apparence",
+    "theme_label": "Thème:",
+    "theme_desc": "Le thème de votre système est utilisé par défaut (sombre/clair)",
+
+    "bookmark_del": "Supprimer le marque-page",
+
+    "mayday_title": "Aujourd'hui 1er mai",
+    "mayday_desc": "Aucune barricade ne résiste à l'unité.",
+
+    "perm_title": "Demande d'autorisation",
+    "perm_desc": "%1 veut accéder à votre %2",
+    "remember_perm": "Se souvenir de cette décision",
+
+    "stadus_cncl": "Lequel annuler ? (Appuyez sur 1-%1): ",
+
+    "allow": "Autoriser",
+    "deny": "Refuser",
+
+    "new_tab": "Nouvel onglet",
+
+    "mic": "Microphone",
+    "cam": "Caméra",
+    "cam_mic": "Caméra + Microphone",
+    "screen": "Écran (Vidéo)",
+    "screen_audio": "Écran + Audio",
+    "audio": "Audio",
+    "unk": "Fonction inconnue",
+
+    "add_engine": "Ajouter moteur",
+    "delete_engine": "Supprimer moteur",
+    "cannot_delete": "Impossible de supprimer",
+    "cannot_delete_desc": "Ce moteur de recherche ne peut pas être supprimé.",
+
+    "light": "Clair",
+    "dark": "Sombre",
+
+    "language_title": "Langue",
+    "language_label": "Langue:",
+    "language_desc": "Sélectionnez la langue du navigateur parmi les options disponibles. Le changement de langue mettra à jour toute l'interface, y compris les menus, paramètres, boîtes de dialogue et messages système. Redémarrez votre navigateur pour appliquer les modifications.",
+    "language_changed_title": "Langue",
+    "language_changed_desc": "Langue modifiée. Un redémarrage peut être nécessaire.",
+
+    "permissions_title": "Autorisations du site",
+    "permissions_desc": "Les autorisations permettent aux sites d'accéder à votre matériel (caméra, microphone, etc.). Pour votre confidentialité, il est recommandé de vérifier régulièrement cette liste et de supprimer les sites auxquels vous ne faites plus confiance. Les autorisations peuvent être supprimées via le menu du clic droit",
+
+    "allowed": "Autorisé",
+    "denied": "Refusé",
+
+    "cookies_title": "Cookies",
+    "cookies_desc": "Les cookies permettent aux sites de se souvenir de vous. Pour plus de confidentialité, vous pouvez supprimer des cookies individuels, tous les cookies d'un domaine spécifique ou tout via le menu du clic droit.",
+
+    "manage_title": "Gestion du navigateur",
+
+    "webgl_label": "WebGL:",
+    "javascript_label": "JavaScript:",
+    "cache_mode_label": "Mode cache:",
+
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+
+    "cache_none": "Sans cache",
+    "cache_disk": "Disque",
+    "cache_memory": "Mémoire",
+
+    "clear_cache": "Vider le cache",
+    "reset_browser": "Réinitialiser NullA Browser",
+
+    "webgl_desc": "WebGL permet aux sites d'utiliser votre carte graphique pour les graphiques 3D. Bien que cela améliore les performances, cela peut aussi être utilisé pour identifier votre matériel (empreinte numérique). Même activé, NullA modifie ou corrompt les informations envoyées par WebGL aux sites.",
+
+    "javascript_desc": "JavaScript est requis pour la plupart des sites modernes. Le désactiver offre le plus haut niveau de confidentialité mais casse la plupart des sites interactifs.",
+
+    "cache_desc": "'Mémoire' équilibre vitesse et confidentialité en supprimant les données à la fermeture, 'Disque' conserve les données pour un chargement plus rapide. 'Sans cache' n'enregistre aucune donnée de site, offrant la meilleure confidentialité au prix de la vitesse.",
+
+    "credits_title": "Crédits NullA",
+    "credits_text": "NullA Browser v26.05.1
+Développé par EPLS (Electus Progressive Liberation Software)
+
+Merci à:
+Pitergolak (https://jakekleiner.itch.io/)
+FerryGames (https://ferry-games.itch.io/)
+NothingXD_B
+Lazarus
+
+Merci d'utiliser NullA Browser !",
+
+    "delete_cookie": "Supprimer le cookie",
+    "delete_domain_cookies": "Supprimer tous les cookies du domaine",
+    "delete_all_cookies": "Supprimer tous les cookies",
+
+    "delete_permission": "Supprimer l'autorisation",
+    "delete_domain_permissions": "Supprimer toutes les autorisations du domaine",
+    "delete_all_permissions": "Supprimer toutes les autorisations",
+
+    "cache_cleared_desc": "Cache vidé.",
+
+    "warning": "Avertissement",
+    "reset_warning": "Tous les cookies, données du site et paramètres seront supprimés. Êtes-vous sûr ?",
+
+    "yes": "Oui",
+    "no": "Non",
+
+    "reset_done_desc": "NullA Browser a été réinitialisé. L'application va se fermer.",
+
+    "add_search_engine_title": "Ajouter un moteur de recherche",
+    "engine_name": "Nom du moteur:",
+    "search_url": "URL de recherche (%s pour requête):",
+
+    "error": "Erreur",
+    "url_must_contain": "L'URL doit contenir %s",
+
+
+    "mute_tab": "Couper le son de l’onglet",
+    "unmute_tab": "Réactiver le son de l’onglet",
+    "reload_tab": "Recharger l’onglet",
+    "close_tab": "Fermer l’onglet",
+    "close_other_tabs": "Fermer les autres onglets",
+
+    "search": "Rechercher..."
+}

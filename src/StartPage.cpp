@@ -6,6 +6,7 @@
  */
 
 #include "../include/StartPage.h"
+#include "../include/Localization.h"
 #include <QKeyEvent>
 #include <QTimer>
 
@@ -40,7 +41,7 @@ StartPage::StartPage(QWidget* parent) : QWidget(parent) {
     // The searchEdit is designed as a visual trigger rather than a standard input field.
     // Key events are intercepted to redirect the focus or handle navigation logic via internal event filters.
     searchEdit = new QLineEdit();
-    searchEdit->setPlaceholderText("Search...");
+    searchEdit->setPlaceholderText(Localization::qget("search"));
     searchEdit->setFixedSize(500, 40);
 
     searchEdit->setReadOnly(false);

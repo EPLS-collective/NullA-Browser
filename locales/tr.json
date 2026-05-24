@@ -2,20 +2,21 @@
     "nulla_setting": "NullA Ayarları",
     "search_engine_title": "Arama Motoru",
     "engine_label": "Motor:",
-    "engine_desc": "Buraya eklediğin arama motorları sağ tık menüsü ile silinebilir. Motor ekleme kısmında '%s' kullanmayı unutma.",
+    "engine_desc": "Buraya eklediğiniz arama motorları sağ tık menüsü kullanılarak silinebilir. Motor ekleme bölümünde '%s' kullanmayı unutmayın.",
     "appearance_title": "Görünüm",
     "theme_label": "Tema:",
-    "theme_desc": "Sistem teması varsayılan olarak kullanılır (koyu/açık)",
+    "theme_desc": "Sistem temanız varsayılan olarak gelir (koyu/açık)",
 
-    "bookmark_del": "Yer İşaretini Sil",
+    "bookmark_del": "Yer İmini Sil",
 
     "mayday_title": "Bugün 1 Mayıs",
-    "mayday_desc": "Birlik oldukça hiçbir barikat duramaz.",
+    "mayday_desc": "Birlik karşısında hiçbir barikat duramaz.",
 
     "perm_title": "İzin İsteği",
-    "perm_desc": "%1 %2 erişimi istiyor",
+    "perm_desc": "%1, %2 erişimini istiyor",
+    "remember_perm": "Bu kararı hatırla",
 
-    "stadus_cncl": "Hangisi iptal edilsin? (1-%1 tuşla): ",
+    "stadus_cncl": "Hangisi iptal edilsin? (1-%1'e basın): ",
 
     "allow": "İzin Ver",
     "deny": "Reddet",
@@ -31,7 +32,7 @@
     "unk": "Bilinmeyen özellik",
 
     "add_engine": "Motor Ekle",
-    "delete_engine": "Motoru Sil",
+    "delete_engine": "Motor Sil",
     "cannot_delete": "Silinemez",
     "cannot_delete_desc": "Bu arama motoru silinemez.",
 
@@ -40,18 +41,18 @@
 
     "language_title": "Dil",
     "language_label": "Dil:",
-    "language_desc": "Tarayıcı dilini mevcut seçenekler arasından seçin. Dil değiştirildiğinde arayüz metinleri menüler, ayarlar, diyaloglar ve sistem mesajları dahil olmak üzere güncellenir. Değişikliklerin etkili olması için tarayıcıyı yeniden başlatın.",
+    "language_desc": "Tarayıcı dilini mevcut seçeneklerden seçin. Dil değiştirildiğinde arayüzdeki tüm metinler güncellenir. Menüleri, ayarları, diyalogları ve sistem mesajlarını içerir. Değişikliklerin uygulanması için tarayıcının yeniden başlatılması gerekir.",
     "language_changed_title": "Dil",
     "language_changed_desc": "Dil değiştirildi. Yeniden başlatma gerekebilir.",
 
     "permissions_title": "Site İzinleri",
-    "permissions_desc": "İzinler, web sitelerinin donanımınıza (Kamera, Mikrofon vb.) erişmesini sağlar. Gizliliğiniz için bu listeyi düzenli olarak kontrol etmeniz ve güvenmediğiniz siteleri kaldırmanız önerilir. İzinler sağ tık menüsü ile silinebilir.",
+    "permissions_desc": "İzinler web sitelerinin donanımınıza (Kamera, Mikrofon vb.) erişmesine izin verir. Gizliliğiniz için bu listeyi düzenli olarak gözden geçirmeniz ve artık güvenmediğiniz siteleri kaldırmanız önerilir. İzinler sağ tık menüsü kullanılarak silinebilir",
 
     "allowed": "İzin Verildi",
     "denied": "Reddedildi",
 
     "cookies_title": "Çerezler",
-    "cookies_desc": "Çerezler web sitelerinin sizi hatırlamasını sağlar. Daha iyi gizlilik için tekil çerezleri, belirli bir domaine ait tüm çerezleri veya hepsini sağ tık menüsü ile silebilirsiniz.",
+    "cookies_desc": "Çerezler web sitelerinin sizi hatırlamasını sağlar. Daha iyi gizlilik için tekil çerezleri, belirli bir alan adının tüm çerezlerini veya her şeyi sağ tık menüsü aracılığıyla silebilirsiniz.",
 
     "manage_title": "Tarayıcı Yönetimi",
 
@@ -59,34 +60,42 @@
     "javascript_label": "JavaScript:",
     "cache_mode_label": "Bellek Modu:",
 
-    "enabled": "Aktif",
-    "disabled": "Pasif",
+    "enabled": "Etkin",
+    "disabled": "Devre Dışı",
 
-    "cache_none": "Önbelleksiz",
+    "cache_none": "Önbellek Yok",
     "cache_disk": "Disk",
     "cache_memory": "Bellek",
 
-    "clear_cache": "Önbelleği temizle",
+    "clear_cache": "Önbelleği Temizle",
     "reset_browser": "NullA Tarayıcıyı Sıfırla",
 
-    "webgl_desc": "WebGL, sitelerin 3D grafikler için ekran kartını kullanmasını sağlar. Harita ve oyunlarda performans artırır ancak donanım parmak izi (fingerprinting) için de kullanılabilir. WebGL açık kalsa bile NullA Browser gönderilen bilgileri değiştirir veya bozar.",
+    "webgl_desc": "WebGL sitelerin 3D grafikler için ekran kartınızı kullanmasını sağlar. Performansı artırır ancak donanımınızı benzersiz şekilde tanımlamak (parmak izi) için de kullanılabilir. WebGL açık kalsa bile NullA Browser, WebGL'in sitelere gönderdiği bilgileri değiştirir veya bozar.",
 
-    "javascript_desc": "JavaScript çoğu modern web sitesinin çalışması için gereklidir. Kapatılması en yüksek gizlilik ve güvenlik sağlar ancak çoğu etkileşimli siteyi bozabilir.",
+    "javascript_desc": "JavaScript çoğu modern web sitesinin çalışması için gereklidir. Devre dışı bırakmak en yüksek gizlilik ve güvenliği sağlar ancak çoğu etkileşimli siteyi bozar.",
 
-    "cache_desc": "'Bellek' modu hızı ve gizliliği dengeleyerek çıkışta verileri siler. 'Disk' modu daha hızlı yükleme için verileri saklar. 'Önbelleksiz' mod hiçbir site verisini saklamaz ve en yüksek gizliliği sağlar ancak hızdan ödün verir.",
+    "cache_desc": "'Bellek' önbelleği çıkışta verileri silerek hız ve gizlilik dengesini sağlar, 'Disk' daha hızlı yükleme için verileri saklar. 'Önbellek Yok' hiçbir site verisinin saklanmamasını sağlar ve en yüksek gizliliği sunar ancak hızdan ödün verir.",
 
-    "credits_title": "NullA Katkı Sağlayanlar",
-    "credits_text": "NullA Browser v26.04.1\n\nGeliştiren: EPLS (Electus Progressive Liberation Software)\n\nTeşekkürler:\nPitergolak (https://jakekleiner.itch.io/)\nFerryGames (https://ferry-games.itch.io/)\nLazarus\n\nNullA Browser'ı kullandığınız için teşekkürler!",
+    "credits_title": "NullA Kredileri",
+    "credits_text": "NullA Browser v26.05.1
+EPLS (Electus Progressive Liberation Software) tarafından geliştirildi
 
-    "delete_cookie": "Çerezi Sil",
-    "delete_domain_cookies": "Bu Domaine Ait Tüm Çerezleri Sil",
+Teşekkürler:
+Pitergolak (https://jakekleiner.itch.io/)
+FerryGames (https://ferry-games.itch.io/)
+NothingXD_B
+Lazarus
+
+NullA Browser kullandığınız için teşekkür ederiz!",
+
+    "delete_cookie": "Çerez Sil",
+    "delete_domain_cookies": "Bu Alan Adındaki Tüm Çerezleri Sil",
     "delete_all_cookies": "Tüm Çerezleri Sil",
 
-    "delete_permission": "İzni Sil",
-    "delete_domain_permissions": "Bu Domaine Ait Tüm İzinleri Sil",
+    "delete_permission": "İzin Sil",
+    "delete_domain_permissions": "Bu Alan Adındaki Tüm İzinleri Sil",
     "delete_all_permissions": "Tüm İzinleri Sil",
 
-    "cache_cleared_title": "NullA Browser",
     "cache_cleared_desc": "Önbellek temizlendi.",
 
     "warning": "Uyarı",
@@ -95,7 +104,6 @@
     "yes": "Evet",
     "no": "Hayır",
 
-    "reset_done_title": "NullA Browser",
     "reset_done_desc": "NullA Browser sıfırlandı. Uygulama kapanacak.",
 
     "add_search_engine_title": "Arama Motoru Ekle",
@@ -103,5 +111,13 @@
     "search_url": "Arama URL'si (%s sorgu için):",
 
     "error": "Hata",
-    "url_must_contain": "URL %s içermelidir"
+    "url_must_contain": "URL %s içermelidir",
+
+    "mute_tab": "Sekmeyi Sessize Al",
+    "unmute_tab": "Sekmenin sesini aç",
+    "reload_tab": "Sekmeyi Yenile",
+    "close_tab": "Sekmeyi Kapat",
+    "close_other_tabs": "Diğer Sekmeleri Kapat",
+
+    "search": "Ara..."
 }

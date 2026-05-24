@@ -1022,7 +1022,7 @@ void Browser::addNewTab() {
     bool isDark = (currentTheme == 1);
     page->applyTheme(isDark);
 
-    int index = tabWidget->addTab(page, QIcon(":/nulla_icon.png"), "New Tab");
+    int index = tabWidget->addTab(page, QIcon(":/nulla_icon.png"), Localization::qget("new_tab"));
 
     TabBar* bar = qobject_cast<TabBar*>(tabWidget->tabBar());
     if (bar) {
@@ -1081,10 +1081,10 @@ void Browser::addNewTab() {
         }
 
         QMessageBox msgBox(this);
-        msgBox.setWindowTitle("Permission Request");
-        msgBox.setText(QString("%1 wants to access your %2").arg(origin).arg(featureName));
+        msgBox.setWindowTitle(Localization::qget("perm_title"));
+        msgBox.setText(QString(Localization::qget("perm_desc")).arg(origin).arg(featureName));
 
-        QCheckBox* rememberBox = new QCheckBox("Remember this decision");
+        QCheckBox* rememberBox = new QCheckBox(Localization::qget("remember_perm"));
         rememberBox->setChecked(false);
         msgBox.setCheckBox(rememberBox);
 

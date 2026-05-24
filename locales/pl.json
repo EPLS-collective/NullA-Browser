@@ -1,0 +1,124 @@
+{
+    "nulla_setting": "Ustawienia NullA",
+    "search_engine_title": "Wyszukiwarka",
+    "engine_label": "Wyszukiwarka:",
+    "engine_desc": "Dodane wyszukiwarki można usunąć, klikając prawym przyciskiem myszy w menu. Pamiętaj, aby użyć '%s' podczas dodawania wyszukiwarki.",
+
+    "appearance_title": "Wygląd",
+    "theme_label": "Motyw:",
+    "theme_desc": "Twój system używa domyślnego motywu (ciemny/jasny).",
+
+    "bookmark_del": "Usuń zakładkę",
+
+    "mayday_title": "Dziś jest 1 maja",
+    "mayday_desc": "Żadna barykada nie powstrzyma jedności.",
+
+    "perm_title": "Prośba o dostęp",
+    "perm_desc": "%1 chce uzyskać dostęp do %2",
+    "remember_perm": "Запомнить это решение",
+
+    "stadus_cncl": "Które anulować? (Naciśnij 1-%1): ",
+
+    "allow": "Pozwól",
+    "deny": "Odmów",
+
+    "new_tab": "Nowa karta",
+
+    "mic": "Mikrofon",
+    "cam": "Kamera",
+    "cam_mic": "Kamera + Mikrofon",
+    "screen": "Ekran (Wideo)",
+    "screen_audio": "Ekran + Audio",
+    "audio": "Audio",
+    "unk": "Nieznana funkcja",
+
+    "add_engine": "Dodaj wyszukiwarkę",
+    "delete_engine": "Usuń wyszukiwarkę",
+    "cannot_delete": "Nie można usunąć",
+    "cannot_delete_desc": "Nie można usunąć tej wyszukiwarki.",
+
+    "light": "Jasny",
+    "dark": "Ciemny",
+
+    "language_title": "Język",
+    "language_label": "Język:",
+    "language_desc": "Wybierz język przeglądarki z dostępnych opcji. Zmiana języka zaktualizuje tekst interfejsu w całej przeglądarce, w tym menu, ustawienia, okna dialogowe i komunikaty systemowe. Aby zmiany zaczęły działać, uruchom ponownie przeglądarkę.",
+    "language_changed_title": "Język",
+    "language_changed_desc": "Język został zmieniony. Może być wymagane ponowne uruchomienie.",
+
+    "permissions_title": "Uprawnienia stron",
+    "permissions_desc": "Uprawnienia pozwalają stronom internetowym uzyskać dostęp do sprzętu (kamera, mikrofon itd.). Dla zachowania prywatności zalecamy okresowe przeglądanie tej listy i usuwanie stron, którym już nie ufasz. Uprawnienia można usunąć za pomocą menu kontekstowego po kliknięciu prawym przyciskiem myszy.",
+
+    "allowed": "Dozwolone",
+    "denied": "Odmówione",
+
+    "cookies_title": "Pliki cookie",
+    "cookies_desc": "Pliki cookie pozwalają stronom internetowym Cię zapamiętać. Dla większej prywatności możesz usuwać pojedyncze pliki cookie, wszystkie pliki cookie z określonej domeny lub wyczyścić wszystko za pomocą menu kontekstowego po kliknięciu prawym przyciskiem myszy.",
+
+    "manage_title": "Zarządzanie przeglądarką",
+
+    "webgl_label": "WebGL:",
+    "javascript_label": "JavaScript:",
+    "cache_mode_label": "Tryb pamięci podręcznej:",
+
+    "enabled": "Włączone",
+    "disabled": "Wyłączone",
+
+    "cache_none": "Brak pamięci podręcznej",
+    "cache_disk": "Dysk",
+    "cache_memory": "Pamięć",
+
+    "clear_cache": "Wyczyść pamięć podręczną",
+    "reset_browser": "Zresetuj przeglądarkę NullA",
+
+    "webgl_desc": "WebGL pozwala stronom korzystać z karty graficznej do renderowania grafiki 3D. Choć poprawia wydajność map i gier, może być również używane do unikalnej identyfikacji sprzętu (fingerprinting). Nawet jeśli pozostawisz WebGL włączone, przeglądarka NullA będzie modyfikować lub zakłócać informacje wysyłane przez WebGL do stron internetowych.",
+
+    "javascript_desc": "JavaScript jest wymagany do działania większości nowoczesnych stron internetowych. Wyłączenie go zapewnia najwyższy poziom prywatności i bezpieczeństwa, ale spowoduje, że większość interaktywnych stron przestanie działać poprawnie.",
+
+    "cache_desc": "Pamięć podręczna „Pamięć” równoważy szybkość i prywatność, usuwając dane po zamknięciu programu, podczas gdy „Dysk” przechowuje dane dla szybszego ładowania. „Brak pamięci podręcznej” zapewnia najwyższy poziom prywatności kosztem szybkości działania.",
+
+    "credits_title": "Twórcy NullA",
+    "credits_text": "NullA Browser v26.05.1
+Stworzone przez EPLS (Electus Progressive Liberation Software)
+
+Podziękowania dla:
+pitergolak (to ja) (https://jakekleiner.itch.io/)
+FerryGames (https://ferry-games.itch.io/)
+NothingXD_B
+Lazarus
+
+Dziękujemy za korzystanie z przeglądarki NullA!",
+
+    "delete_cookie": "Usuń plik cookie",
+    "delete_domain_cookies": "Usuń wszystkie pliki cookie z tej domeny",
+    "delete_all_cookies": "Usuń wszystkie pliki cookie",
+
+    "delete_permission": "Usuń uprawnienie",
+    "delete_domain_permissions": "Usuń wszystkie uprawnienia z tej domeny",
+    "delete_all_permissions": "Usuń wszystkie uprawnienia",
+
+    "cache_cleared_desc": "Pamięć podręczna została wyczyszczona.",
+
+    "warning": "Ostrzeżenie",
+    "reset_warning": "Wszystkie pliki cookie, dane stron i ustawienia zostaną usunięte. Czy na pewno chcesz kontynuować?",
+
+    "yes": "Tak",
+    "no": "Nie",
+
+    "reset_done_desc": "Przeglądarka NullA została zresetowana. Aplikacja zostanie zamknięta.",
+
+    "add_search_engine_title": "Dodaj wyszukiwarkę",
+    "engine_name": "Nazwa wyszukiwarki:",
+    "search_url": "Adres URL wyszukiwania (%s dla zapytania):",
+
+    "error": "Błąd",
+    "url_must_contain": "Adres URL musi zawierać %s",
+
+    "mute_tab": "Wycisz kartę",
+    "unmute_tab": "Wyłącz wyciszenie karty",
+    "reload_tab": "Odśwież kartę",
+    "close_tab": "Zamknij kartę",
+    "close_other_tabs": "Zamknij inne karty",
+
+    "search": "Szukaj..."
+}

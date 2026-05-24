@@ -164,8 +164,15 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     QComboBox* languageCombo = new QComboBox();
     languageCombo->setMinimumHeight(30);
 
+    languageCombo->addItem("Deutsch", "de");
     languageCombo->addItem("English", "en");
+    languageCombo->addItem("Español", "es");
+    languageCombo->addItem("Filipino", "fil");
+    languageCombo->addItem("Français", "fr");
+    languageCombo->addItem("Polski", "pl");
+    languageCombo->addItem("Русский", "ru");
     languageCombo->addItem("Türkçe", "tr");
+    languageCombo->addItem("हिन्दी", "hi");
 
     QString savedLang = QString::fromStdString(Localization::currentLanguage());
 

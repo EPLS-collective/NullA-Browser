@@ -19,7 +19,7 @@ bool Localization::loadLanguage(const std::string& langCode) {
 
     store.translations.clear();
 
-    QString path = QCoreApplication::applicationDirPath() + "/locales/" + QString::fromStdString(langCode) + ".json";
+    QString path = ":/locales/" + QString::fromStdString(langCode) + ".json";
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {

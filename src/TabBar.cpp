@@ -7,6 +7,7 @@
 
 #include "../include/TabBar.h"
 #include "../include/TabPage.h"
+#include "../include/Localization.h"
 #include <QMenu>
 #include <QTabWidget>
 #include <QWebEngineView>
@@ -79,17 +80,17 @@ void TabBar::contextMenuEvent(QContextMenuEvent* event) {
     TabPage* page = tw ? qobject_cast<TabPage*>(tw->widget(index)) : nullptr;
 
     QMenu menu(this);
-    QAction* reloadAction = menu.addAction("Reload");
+    QAction* reloadAction = menu.addAction(Localization::qget("reload_tab"));
 
     bool isMuted = false;
     if (page && page->webView() && page->webView()->page()) {
         isMuted = page->webView()->page()->isAudioMuted();
     }
 
-    QAction* muteAction = menu.addAction(isMuted ? "Unmute Tab" : "Mute Tab");
+    QAction* muteAction = menu.addAction(isMuted ? Localization::qget("unmute_tab") : Localization::qget("mute_tab"));
     menu.addSeparator();
-    QAction* closeAction = menu.addAction("Close Tab");
-    QAction* closeOthersAction = menu.addAction("Close Other Tabs");
+    QAction* closeAction = menu.addAction(Localization::qget("close_tab"));
+    QAction* closeOthersAction = menu.addAction(Localization::qget("close_other_tabs"));
 
     QAction* selectedAction = menu.exec(event->globalPos());
 
