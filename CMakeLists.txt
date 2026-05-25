@@ -68,7 +68,7 @@ endif()
 
 if(WIN32)
     target_sources(${PROJECT_NAME} PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/nullA_browser/resources/icon.rc
+        ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon.rc
     )
 endif()
 
