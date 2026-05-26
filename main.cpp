@@ -13,6 +13,12 @@
 
 int main(int argc, char *argv[]) {
 
+    // REQUIRED ON WINDOWS: Ensures shared OpenGL contexts between the UI and QtWebEngine (Chromium render processes).
+    // Without this, the application immediately throws an Access Violation (0xc0000005) on Windows display drivers.
+    #ifdef Q_OS_WIN
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    #endif
+
     // Hardening Chromium for privacy and performance
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS",
             "--disable-dns-prefetch " // Prevents DNS lookups before clicking links

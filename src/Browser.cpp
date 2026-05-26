@@ -1298,15 +1298,6 @@ void Browser::closeEvent(QCloseEvent* event) {
 }
 
 void Browser::mousePressEvent(QMouseEvent* event) {
-    if (suggestionList && suggestionList->isVisible()) {
-        QPoint globalPos = event->globalPosition().toPoint();
-        QRect listGeometry = suggestionList->geometry();
-
-        if (!listGeometry.contains(globalPos)) {
-            suggestionList->hide();
-        }
-    }
-
     if (isFullscreen) {
         QWidget* clickedWidget = QApplication::widgetAt(event->globalPosition().toPoint());
         if (clickedWidget != urlBar && !urlBar->isAncestorOf(clickedWidget)) {
@@ -1348,26 +1339,21 @@ bool Browser::eventFilter(QObject* obj, QEvent* ev) {
         return true;
 
     if (ev->type() == QEvent::MouseButtonPress) {
-        QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(ev);
-        QPoint globalPos = mouseEvent->globalPosition().toPoint();
+        QMouseEvent* me = static_cast<QMouseEvent*>(ev);
+        QPoint globalPos = me->globalPosition().toPoint();
 
         if (suggestionList && suggestionList->isVisible()) {
-            if (!suggestionList->geometry().contains(globalPos)) {
+            QWidget* clicked = QApplication::widgetAt(globalPos);
+
+            bool clickedInsideSuggestion =
+            clicked == suggestionList ||
+            suggestionList->isAncestorOf(clicked);
+
+            bool clickedUrlBar =
+            clicked == urlBar || urlBar->isAncestorOf(clicked);
+
+            if (!clickedInsideSuggestion && !clickedUrlBar) {
                 suggestionList->hide();
-            }
-        }
-
-        if (isFullscreen) {
-            QWidget* clickedWidget = QApplication::widgetAt(globalPos);
-            if (clickedWidget != urlBar && !urlBar->isAncestorOf(clickedWidget)) {
-                toolbar->hide();
-            }
-        }
-
-        QWidget* focusedWidget = QApplication::focusWidget();
-        if (focusedWidget && qobject_cast<QLineEdit*>(focusedWidget)) {
-            if (focusedWidget != obj && !focusedWidget->geometry().contains(focusedWidget->mapFromGlobal(globalPos))) {
-                focusedWidget->clearFocus();
             }
         }
     }
@@ -1377,18 +1363,7 @@ bool Browser::eventFilter(QObject* obj, QEvent* ev) {
             if (!urlBar->text().isEmpty()) {
                 updateSuggestions(urlBar->text());
             }
-        } else if (ev->type() == QEvent::FocusOut) {
-            QTimer::singleShot(200, this, [this]() {
-                if (suggestionList && !suggestionList->underMouse()) {
-                    suggestionList->hide();
-                }
-            });
         }
-    }
-
-    if (obj == suggestionList && ev->type() == QEvent::FocusOut) {
-        suggestionList->hide();
-        return true;
     }
 
     return QMainWindow::eventFilter(obj, ev);

@@ -19,6 +19,5 @@ Issues are tracked on:
 ## Resources
 
 - [EPLS License](LICENSE.txt)
-- [Archived test repository (pre-public development)](https://github.com/Electus2000/NullA-TEST)
 
 Questions? Open an issue.
