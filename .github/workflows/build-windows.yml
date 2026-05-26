@@ -37,7 +37,7 @@ jobs:
           host: windows
           target: desktop
           arch: "win64_msvc2022_64"
-          modules: "qtwebengine qtwebchannel qtpositioning qtmultimedia qtsvg"
+          modules: "qtwebengine qtwebchannel qtpositioning qtmultimedia"
 
       - name: Add Qt bin to PATH
         shell: powershell
