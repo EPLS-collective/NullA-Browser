@@ -1,0 +1,84 @@
+name: Build Linux Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (YY.MM.N format, e.g. 26.4.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libegl1-mesa-dev libgl1-mesa-dev libxcb-cursor0
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: "6.10.2"
+          host: linux
+          target: desktop
+          arch: "linux_gcc_64"
+          modules: "qtwebengine qtwebchannel qtpositioning qtmultimedia qtsvg"
+
+      - name: Configure CMake
+        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Prepare package folder and deploy dependencies
+        run: |
+          rm -rf build/NullA
+          mkdir -p build/NullA
+
+          find build -type f -name "NullA" ! -path "*/CMakeFiles/*" -exec cp {} build/NullA/ \;
+          chmod +x build/NullA/NullA
+
+          cd build/NullA
+          ldd NullA | grep "=> /" | awk '{print $3}' | grep -vE "libc\.so|libpthread\.so|libdl\.so|libm\.so|librt\.so|libutil\.so|libcrypt\.so|libresolv\.so|libgcc_s\.so|ld-linux" | xargs -I '{}' cp -n '{}' . || true
+
+          mkdir -p plugins
+          if [ -d "${{ env.QT_ROOT_DIR }}/plugins/platforms" ]; then
+            cp -r ${{ env.QT_ROOT_DIR }}/plugins/platforms plugins/
+          fi
+          if [ -d "${{ env.QT_ROOT_DIR }}/plugins/multimedia" ]; then
+            cp -r ${{ env.QT_ROOT_DIR }}/plugins/multimedia plugins/
+          fi
+          if [ -d "${{ env.QT_ROOT_DIR }}/plugins/tls" ]; then
+            cp -r ${{ env.QT_ROOT_DIR }}/plugins/tls plugins/
+          fi
+
+          if [ -d "${{ env.QT_ROOT_DIR }}/libexec" ]; then
+            cp -r ${{ env.QT_ROOT_DIR }}/libexec/* .
+          fi
+          if [ -d "${{ env.QT_ROOT_DIR }}/resources" ]; then
+            mkdir -p resources
+            cp -r ${{ env.QT_ROOT_DIR }}/resources/* resources/
+          fi
+
+      - name: Create tar.gz package
+        run: |
+          tar -czf NullA-Linux.tar.gz -C build NullA
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: NullA v${{ github.event.inputs.version }}
+          prerelease: false
+          files: NullA-Linux.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
