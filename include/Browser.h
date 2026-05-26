@@ -104,7 +104,7 @@ private:
     void showBookmarkContextMenu(const QPoint& pos);
     void removeBookmark(const QString& url);
 
-    RenderController* renderController;
+    RenderController* renderController = nullptr;
 
     QMap<QString, QString> searchEngines;
     QString currentSearchEngine;

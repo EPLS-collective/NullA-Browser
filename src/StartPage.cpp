@@ -9,6 +9,8 @@
 #include "../include/Localization.h"
 #include <QKeyEvent>
 #include <QTimer>
+#include <QSvgRenderer>
+#include <QPainter>
 
 StartPage::StartPage(QWidget* parent) : QWidget(parent) {
     QVBoxLayout* layout = new QVBoxLayout(this);
@@ -23,13 +25,15 @@ StartPage::StartPage(QWidget* parent) : QWidget(parent) {
     nullLabel->setStyleSheet("font-size: 32px; font-weight: bold; background: none;");
 
     iconLabel = new QLabel();
-    QPixmap iconPix(":/nulla_icon.png");
-    if(!iconPix.isNull()) {
-        iconLabel->setPixmap(iconPix.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    } else {
-        iconLabel->setText("A");
-        iconLabel->setStyleSheet("font-size: 32px; background: none;");
-    }
+    QSvgRenderer renderer(QString(":/nulla_icon.svg"));
+
+    QPixmap iconPix(32, 32);
+    iconPix.fill(Qt::transparent);
+
+    QPainter painter(&iconPix);
+    renderer.render(&painter);
+
+    iconLabel->setPixmap(iconPix);
 
     browserLabel = new QLabel(" Browser");
     browserLabel->setStyleSheet("font-size: 32px; font-weight: bold; background: none;");

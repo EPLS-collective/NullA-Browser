@@ -20,6 +20,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Widgets
     WebEngineWidgets
     Multimedia
+    Svg
 )
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
@@ -47,6 +48,7 @@ target_link_libraries(${PROJECT_NAME}
     Qt6::Widgets
     Qt6::WebEngineWidgets
     Qt6::Multimedia
+    Qt6::Svg
 )
 
 if(WIN32)

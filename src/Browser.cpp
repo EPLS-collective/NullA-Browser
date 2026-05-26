@@ -255,6 +255,14 @@ Browser::Browser(const QString &initialUrl) {
     mainLayout->addWidget(toolbar);
     mainLayout->addWidget(tabWidget);
 
+    renderController = new RenderController(this);
+
+    connect(renderController, &RenderController::frameReady, this, [this]() {
+        if (auto* page = currentTabPage()) {
+            page->webView()->update();
+        }
+    });
+
     connect(tabWidget, &QTabWidget::currentChanged, this, &Browser::handleTabChange);
 
     connect(tabWidget, &TabWidget::tabCloseRequested, this, &Browser::closeTab);
@@ -373,15 +381,6 @@ Browser::Browser(const QString &initialUrl) {
             }
         });
     }
-
-    renderController = new RenderController(this);
-
-    connect(renderController, &RenderController::frameReady, this, [this]() {
-
-        if (auto* page = currentTabPage()) {
-            page->webView()->update();
-        }
-    });
 
     // May Day event
     maydayPlayer = new QMediaPlayer(this);
@@ -729,7 +728,7 @@ void Browser::createToolbar() {
     QAction* forwardAction = toolbar->addAction("→");
     QAction* reloadAction = toolbar->addAction("⟳");
 
-    urlBar = new QLineEdit();
+    urlBar = new QLineEdit(this);
     urlBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     QHBoxLayout* urlLayout = new QHBoxLayout(urlBar);
@@ -908,6 +907,7 @@ void Browser::createToolbar() {
 }
 
 void Browser::handleTabChange(int index) {
+    if (!renderController) return;
     if (index == -1) return;
     TabPage* page = qobject_cast<TabPage*>(tabWidget->widget(index));
     if (page) {
@@ -1189,6 +1189,10 @@ void Browser::addNewTab() {
 
     connect(page, &TabPage::currentChanged, this, [this](int index) {
         Q_UNUSED(index);
+        checkAndUpdateFavoriteButton();
+    });
+
+    QTimer::singleShot(0, this, [this]() {
         checkAndUpdateFavoriteButton();
     });
 
