@@ -7,7 +7,7 @@ Some parts of this process, including cloning and compiling, can take time depen
 ## Before You Start
 
 - An account on one of our repositories:
-  - [GitHub](https://github.com/Electus2000/NullA-Browser)
+  - [GitHub](https://github.com/EPLS-collective/NullA-Browser)
   - [Codeberg](https://codeberg.org/EPLS/NullA-Browser)
   - [Disroot](https://git.disroot.org/EPLS/NullA-Browser)
 - Basic familiarity with the command line
@@ -34,7 +34,7 @@ Some parts of this process, including cloning and compiling, can take time depen
 ## Getting the Source
 
 ```
-git clone https://github.com/Electus2000/NullA-Browser.git
+git clone https://github.com/EPLS-collective/NullA-Browser.git
 cd NullA-Browser
 ```
 
@@ -59,7 +59,7 @@ The executable will be in ```build/bin/```.
 
 ## To Run
 
-./build/bin/NullA
+```./build/bin/NullA```
 
 On Windows: ```build\bin\NullA.exe```
 
@@ -67,7 +67,7 @@ On Windows: ```build\bin\NullA.exe```
 
 ## Contributing
 
-We welcome contributions of any kind. Code, bug reports, translations, design feedback—all of it helps.
+We welcome contributions of any kind. Code, bug reports, translations, design feedback all of it helps.
 
 If you're not sure where to start, open an issue and ask.
 
