@@ -18,9 +18,12 @@ int main(int argc, char *argv[]) {
     #ifdef Q_OS_WIN
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     #endif
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 
     // Hardening Chromium for privacy and performance
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS",
+            "--disable-frame-rate-limit " // Removes chromium FPS limit (Chromium default: 60)
             "--disable-dns-prefetch " // Prevents DNS lookups before clicking links
             "--disable-features=WebRtcHideLocalIpsWithMdns " // Disables mDNS to prevent local IP leakage
             "--disable-features=UserAgentClientHint " // Disables Client Hints to reduce fingerprinting
