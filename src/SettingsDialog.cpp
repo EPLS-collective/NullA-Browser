@@ -26,13 +26,13 @@
 #include <QJsonArray>
 #include "../include/SettingsDialog.h"
 #include "../include/Localization.h"
+#include "../include/SafeComboBox.h"
 
 SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
 : QDialog(parent), m_profile(profile) {
 
     setWindowTitle(Localization::qget("nulla_setting"));
-    setFixedWidth(380);
-    setMinimumHeight(500);
+    resize(380, 600);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0); // Remove margins from window
@@ -68,6 +68,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     settings = new QSettings("NullA", "Browser", this);
 
     searchCombo = new QComboBox();
+    searchCombo = new SafeComboBox();
     searchCombo->addItems({"DuckDuckGo"});
 
     QStringList engines = settings->value("customSearchEngines").toStringList();
@@ -143,6 +144,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     themeLabel->setFixedWidth(60);
     themeLabel->setStyleSheet("background: none;");
     themeCombo = new QComboBox();
+    themeCombo = new SafeComboBox();
     themeCombo->addItems({Localization::qget("light"), Localization::qget("dark")});
     themeCombo->setMinimumHeight(30);
 
@@ -162,6 +164,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     languageLabel->setStyleSheet("background: none;");
 
     QComboBox* languageCombo = new QComboBox();
+    languageCombo = new SafeComboBox();
     languageCombo->setMinimumHeight(30);
 
     languageCombo->addItem("Deutsch", "de");
@@ -281,6 +284,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     webglLabel->setStyleSheet("background: none;");
 
     QComboBox* webglCombo = new QComboBox();
+    webglCombo = new SafeComboBox();
     webglCombo->addItems({Localization::qget("enabled"), Localization::qget("disabled")});
     webglCombo->setCurrentIndex(settings->value("enableWebGL", true).toBool() ? 0 : 1);
 
@@ -294,6 +298,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     jsLabel->setStyleSheet("background: none;");
 
     QComboBox* jsCombo = new QComboBox();
+    jsCombo = new SafeComboBox();
     jsCombo->addItems({Localization::qget("enabled"), Localization::qget("disabled")});
     jsCombo->setCurrentIndex(settings->value("enableJS", true).toBool() ? 0 : 1);
 
@@ -306,6 +311,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     cacheLabel->setStyleSheet("background: none;");
 
     cacheCombo = new QComboBox();
+    cacheCombo = new SafeComboBox();
     cacheCombo->addItems({Localization::qget("cache_none"), Localization::qget("cache_disk"), Localization::qget("cache_memory")}); // 0=No Cache,1=Disk,2=Memory
     int savedCacheMode = settings->value("cacheMode", 1).toInt(); // default Disk
     cacheCombo->setCurrentIndex(savedCacheMode);

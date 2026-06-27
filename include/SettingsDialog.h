@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2025-2026 EPLS (Electus Progressive Liberation Software)
+ * SPDX-License-Identifier: LicenseRef-EPLS-1.1
+ * Distributed under the EPLS (Electus Progressive Liberation Software) License.
+ * See LICENSE file in the project root for full terms.
+ */
+
 #ifndef SETTINGSDIALOG_H
 #define SETTINGSDIALOG_H
 
@@ -7,13 +14,6 @@
 #include <QSettings>
 #include <QPushButton>
 #include <QVBoxLayout>
-/*
- * Copyright (c) 2025-2026 EPLS (Electus Progressive Liberation Software)
- * SPDX-License-Identifier: LicenseRef-EPLS-1.1
- * Distributed under the EPLS (Electus Progressive Liberation Software) License.
- * See LICENSE file in the project root for full terms.
- */
-
 #include <QLabel>
 #include <QMessageBox>
 #include <QDir>
