@@ -427,7 +427,7 @@ void Browser::handleDownload(QWebEngineDownloadRequest* download) {
     QString path;
 
     if (isExtension) {
-        reply = QMessageBox::question(this, "Install Extension",
+        QMessageBox::StandardButton reply = QMessageBox::question(this, "Install Extension",
         "Do you want to add this extension to NullA Browser?",
         QMessageBox::Yes | QMessageBox::No);
 
