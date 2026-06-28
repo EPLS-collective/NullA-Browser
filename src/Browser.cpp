@@ -37,6 +37,9 @@
 #include <QJsonArray>
 #include <QMediaPlayer>
 #include <QAudioOutput>
+#include <QDir>
+#include <QFileInfo>
+#include <QProcess>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <dwmapi.h>
@@ -241,6 +244,7 @@ Browser::Browser(const QString &initialUrl) {
     createToolbar();
     loadCookiesFromJson();
     loadBookmarks();
+    loadExtensions();
 
     bookmarkContextMenu = new QMenu(this);
     QAction* deleteAction = bookmarkContextMenu->addAction(Localization::qget("bookmark_del"));
@@ -417,10 +421,30 @@ Browser::Browser(const QString &initialUrl) {
 }
 
 void Browser::handleDownload(QWebEngineDownloadRequest* download) {
-    QString path = QFileDialog::getSaveFileName(this, "Save File", download->downloadFileName());
-    if (path.isEmpty()) {
-        download->cancel();
-        return;
+    QString downloadUrl = download->url().toString();
+    bool isExtension = downloadUrl.startsWith("https://electus2000.github.io/nulla-extensions/");
+
+    QString path;
+
+    if (isExtension) {
+        reply = QMessageBox::question(this, "Install Extension",
+        "Do you want to add this extension to NullA Browser?",
+        QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::No) {
+            download->cancel();
+            return;
+        }
+
+        QString tempDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+        QDir().mkpath(tempDir);
+        path = tempDir + "/" + download->downloadFileName();
+    } else {
+        path = QFileDialog::getSaveFileName(this, "Save File", download->downloadFileName());
+        if (path.isEmpty()) {
+            download->cancel();
+            return;
+        }
     }
 
     download->setDownloadDirectory(QFileInfo(path).path());
@@ -432,6 +456,25 @@ void Browser::handleDownload(QWebEngineDownloadRequest* download) {
 
     statusBar()->setFont(QFont("Courier New", 9));
     statusBar()->show();
+
+    if (isExtension) {
+        connect(download, &QWebEngineDownloadRequest::stateChanged, this, [this, download, path]() {
+            if (download->state() == QWebEngineDownloadRequest::DownloadCompleted) {
+                QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
+
+                QString extName = QFileInfo(path).baseName();
+                QString destDir = extRoot + "/" + extName;
+                QDir().mkpath(destDir);
+
+                extractZip(path, destDir);
+                loadExtensions();
+
+                QFile::remove(path);
+
+                QMessageBox::information(this, "NullA Browser", "The extension was successfully installed.");
+            }
+        });
+    }
 
     connect(d, &Download::progressChanged, this, [this]() {
         if (!isWaitingForCancelInput) {
@@ -761,6 +804,14 @@ void Browser::createToolbar() {
     urlBar->setLayout(urlLayout);
 
     toolbar->addWidget(urlBar);
+
+    QAction* extensionsAction = toolbar->addAction("</>");
+    extensionsButton = qobject_cast<QToolButton*>(toolbar->widgetForAction(extensionsAction));
+
+    if (extensionsButton) {
+        extensionsButton->setCursor(Qt::PointingHandCursor);
+        connect(extensionsButton, &QToolButton::clicked, this, &Browser::setupExtensionsButton);
+    }
 
     QAction* settingsAction = toolbar->addAction("☰");
 
@@ -1583,4 +1634,73 @@ void Browser::removeBookmark(const QString& url) {
     }
 
     updateFavoriteButtonStyle();
+}
+
+void Browser::extractZip(const QString &zipPath, const QString &destDir) {
+    QProcess process;
+    #ifdef Q_OS_WIN
+    QStringList arguments;
+    arguments << "-Command" << QString("Expand-Archive -Path '%1' -DestinationPath '%2' -Force").arg(zipPath, destDir);
+    process.start("powershell", arguments);
+    #else
+    QStringList arguments;
+    arguments << "-o" << zipPath << "-d" << destDir;
+    process.start("unzip", arguments);
+    #endif
+    process.waitForFinished(-1);
+}
+
+void Browser::setupExtensionsButton() {
+    QString extensionsUrl = "https://electus2000.github.io/nulla-extensions";
+
+    openUrlInNewTab(extensionsUrl);
+}
+
+void Browser::loadExtensions() {
+    QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
+    QDir rootDir(extRoot);
+
+    if (!rootDir.exists()) return;
+
+    QStringList subDirs = rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (const QString &dirName : subDirs) {
+        QString extPath = extRoot + "/" + dirName;
+        QFile manifestFile(extPath + "/manifest.json");
+
+        if (manifestFile.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(manifestFile.readAll());
+            QJsonObject json = doc.object();
+
+            if (json.contains("content_scripts")) {
+                QJsonArray scripts = json["content_scripts"].toArray();
+                for (int i = 0; i < scripts.size(); ++i) {
+                    QJsonObject scriptObj = scripts[i].toObject();
+
+                    if (scriptObj.contains("js")) {
+                        QJsonArray jsFiles = scriptObj["js"].toArray();
+                        for (int j = 0; j < jsFiles.size(); ++j) {
+                            QString jsFileName = jsFiles[j].toString();
+                            QFile jsFile(extPath + "/" + jsFileName);
+
+                            if (jsFile.open(QIODevice::ReadOnly)) {
+                                QString jsCode = QString::fromUtf8(jsFile.readAll());
+
+                                QWebEngineScript script;
+                                script.setSourceCode(jsCode);
+                                script.setName(dirName + "_" + jsFileName);
+                                script.setInjectionPoint(QWebEngineScript::DocumentReady);
+                                script.setWorldId(QWebEngineScript::MainWorld);
+                                script.setRunsOnSubFrames(true);
+
+                                QWebEngineProfile::defaultProfile()->scripts()->insert(script);
+                                jsFile.close();
+                            }
+                        }
+                    }
+                }
+            }
+            manifestFile.close();
+        }
+    }
 }

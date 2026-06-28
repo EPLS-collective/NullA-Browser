@@ -108,6 +108,11 @@ private:
 
     QMap<QString, QString> searchEngines;
     QString currentSearchEngine;
+
+    void loadExtensions();
+    void setupExtensionsButton();
+    QToolButton* extensionsButton = nullptr;
+    void extractZip(const QString &zipPath, const QString &destDir);
 };
 
 #endif // BROWSER_H
