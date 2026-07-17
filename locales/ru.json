@@ -77,12 +77,13 @@
     "cache_desc": "Кэш 'Память' обеспечивает баланс между скоростью и конфиденциальностью, удаляя данные при выходе, тогда как 'Диск' сохраняет данные для более быстрой загрузки. 'Без кэша' гарантирует, что данные сайтов не будут сохраняться, обеспечивая максимальную конфиденциальность ценой скорости.",
 
     "credits_title": "Благодарности NullA",
-    "credits_text": "NullA Browser v26.6.1
+    "credits_text": "NullA Browser v26.7.1
 Разработано EPLS (Electus Progressive Liberation Software)
 
 Благодарности:
 Pitergolak (https://jakekleiner.itch.io/)
 FerryGames (https://ferry-games.itch.io/)
+Irina Acasandrei (https://irina-acasandrei.itch.io/)
 NothingXD_B
 Lazarus
 

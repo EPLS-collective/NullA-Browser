@@ -3,11 +3,13 @@
         <file>de.json</file>
         <file>en.json</file>
         <file>es.json</file>
+        <file>el.json</file>
         <file>fr.json</file>
         <file>fil.json</file>
         <file>hi.json</file>
         <file>pl.json</file>
         <file>tr.json</file>
+        <file>ro.json</file>
         <file>ru.json</file>
     </qresource>
 </RCC>

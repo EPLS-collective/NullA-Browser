@@ -77,12 +77,13 @@
     "cache_desc": "'मेमोरी' कैश गति और गोपनीयता के बीच संतुलन बनाता है क्योंकि यह एप्लिकेशन बंद होने पर डेटा मिटा देता है, जबकि 'डिस्क' तेज़ लोडिंग के लिए डेटा को स्थायी रखता है। 'कोई कैश नहीं' सुनिश्चित करता है कि कोई साइट डेटा संग्रहीत न हो, जिससे गोपनीयता उच्च रहती है पर गति घटती है।",
 
     "credits_title": "NullA श्रेय",
-    "credits_text": "NullA ब्राउज़र v26.6.1
+    "credits_text": "NullA ब्राउज़र v26.7.1
 विकसित: EPLS (Electus Progressive Liberation Software)
 
 विशेष धन्यवाद:
 Pitergolak (https://jakekleiner.itch.io/)
 FerryGames (https://ferry-games.itch.io/)
+Irina Acasandrei (https://irina-acasandrei.itch.io/)
 NothingXD_B
 Lazarus
 

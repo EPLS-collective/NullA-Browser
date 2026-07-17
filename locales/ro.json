@@ -1,0 +1,124 @@
+{
+    "nulla_setting": "Setări NullA",
+    "search_engine_title": "Motor de căutare",
+    "engine_label": "Motor:",
+    "engine_desc": "Motoarele de căutare adăugate aici pot fi șterse folosind meniul de clic dreapta. Nu uita să folosești „%s” în secțiunea de adăugare a motorului.",
+    "appearance_title": "Aspect",
+    "theme_label": "Temă:",
+    "theme_desc": "Tema sistemului este folosită implicit (întunecată/deschisă)",
+
+    "bookmark_del": "Șterge marcajul",
+
+    "mayday_title": "Astăzi, 1 mai",
+    "mayday_desc": "Nicio baricadă nu rezistă în fața unității.",
+
+    "perm_title": "Cerere de permisiune",
+    "perm_desc": "%1 dorește să acceseze %2",
+    "remember_perm": "Ține minte această decizie",
+
+    "stadus_cncl": "Anulezi care? (Apasă 1-%1): ",
+
+    "allow": "Permite",
+    "deny": "Refuză",
+
+    "new_tab": "Tab nou",
+
+    "mic": "Microfon",
+    "cam": "Cameră",
+    "cam_mic": "Cameră + Microfon",
+    "screen": "Ecran (Video)",
+    "screen_audio": "Ecran + Audio",
+    "audio": "Audio",
+    "unk": "Funcție necunoscută",
+
+    "add_engine": "Adaugă motor",
+    "delete_engine": "Șterge motor",
+    "cannot_delete": "Nu poate fi șters",
+    "cannot_delete_desc": "Acest motor de căutare nu poate fi șters.",
+
+    "light": "Deschis",
+    "dark": "Întunecat",
+
+    "language_title": "Limbă",
+    "language_label": "Limbă:",
+    "language_desc": "Selectează limba browserului din opțiunile disponibile. Schimbarea limbii va actualiza textul interfeței în tot browserul, inclusiv meniuri, setări, dialoguri și mesaje de sistem. Poate fi necesară repornirea browserului pentru aplicarea modificărilor.",
+    "language_changed_title": "Limbă",
+    "language_changed_desc": "Limba a fost schimbată. Poate fi necesară repornirea.",
+
+    "permissions_title": "Permisiuni site",
+    "permissions_desc": "Permisiunile permit site‑urilor să îți acceseze hardware‑ul (Cameră, Microfon etc.). Pentru confidențialitate, îți recomandăm să revizuiești periodic această listă și să elimini site‑urile în care nu mai ai încredere. Permisiunile pot fi șterse folosind meniul de clic dreapta.",
+
+    "allowed": "Permis",
+    "denied": "Refuzat",
+
+    "cookies_title": "Cookie‑uri",
+    "cookies_desc": "Cookie‑urile permit site‑urilor să își amintească de tine. Pentru o confidențialitate mai bună, poți șterge cookie‑uri individuale, toate cookie‑urile de la un anumit domeniu sau poți șterge totul prin meniul de clic dreapta.",
+
+    "manage_title": "Administrare browser",
+
+    "webgl_label": "WebGL:",
+    "javascript_label": "JavaScript:",
+    "cache_mode_label": "Mod cache:",
+
+    "enabled": "Activat",
+    "disabled": "Dezactivat",
+
+    "cache_none": "Fără cache",
+    "cache_disk": "Disk",
+    "cache_memory": "Memorie",
+
+    "clear_cache": "Șterge cache‑ul",
+    "reset_browser": "Resetează browserul NullA",
+
+    "webgl_desc": "WebGL permite site‑urilor să îți folosească placa video pentru grafică 3D. Deși îmbunătățește performanța în hărți și jocuri, poate fi folosit și pentru a identifica unic hardware‑ul (Fingerprinting). Chiar dacă lași WebGL activ, NullA Browser va modifica sau corupe informațiile pe care WebGL le trimite site‑urilor.",
+
+    "javascript_desc": "JavaScript este necesar pentru funcționarea majorității site‑urilor moderne. Dezactivarea lui oferă cel mai înalt nivel de confidențialitate și securitate, dar va afecta majoritatea site‑urilor interactive.",
+
+    "cache_desc": "Cache‑ul „Memorie” echilibrează viteza și confidențialitatea prin ștergerea datelor la ieșire, în timp ce „Disk” păstrează datele pentru încărcare mai rapidă. „Fără cache” asigură că nu se stochează date ale site‑urilor, oferind cea mai mare confidențialitate cu prețul vitezei.",
+
+    "credits_title": "Credite NullA",
+    "credits_text": "NullA Browser v26.7.1
+Dezvoltat de EPLS (Electus Progressive Liberation Software)
+
+Mulțumiri:
+Pitergolak (https://jakekleiner.itch.io/)
+FerryGames (https://ferry-games.itch.io/)
+Irina Acasandrei (https://irina-acasandrei.itch.io/)
+NothingXD_B
+Lazarus
+
+Îți mulțumim că folosești NullA Browser!",
+
+    "delete_cookie": "Șterge cookie",
+    "delete_domain_cookies": "Șterge toate cookie‑urile de la acest domeniu",
+    "delete_all_cookies": "Șterge toate cookie‑urile",
+
+    "delete_permission": "Șterge permisiunea",
+    "delete_domain_permissions": "Șterge toate permisiunile de la acest domeniu",
+    "delete_all_permissions": "Șterge toate permisiunile",
+
+    "cache_cleared_desc": "Cache șters.",
+
+    "warning": "Avertisment",
+    "reset_warning": "Toate cookie‑urile, datele site‑urilor și setările vor fi șterse. Sigur vrei să continui?",
+
+    "yes": "Da",
+    "no": "Nu",
+
+    "reset_done_desc": "Browserul NullA a fost resetat. Aplicația se va închide.",
+
+    "add_search_engine_title": "Adaugă motor de căutare",
+    "engine_name": "Nume motor:",
+    "search_url": "URL de căutare (%s pentru interogare):",
+
+    "error": "Eroare",
+    "url_must_contain": "URL‑ul trebuie să conțină %s",
+
+    "mute_tab": "Dezactivează sunetul tabului",
+    "unmute_tab": "Activează sunetul tabului",
+    "reload_tab": "Reîncarcă tabul",
+    "close_tab": "Închide tabul",
+    "close_other_tabs": "Închide celelalte taburi",
+
+    "search": "Caută..."
+}

@@ -141,9 +141,9 @@ Browser::Browser(const QString &initialUrl) {
     profile->settings()->setAttribute(QWebEngineSettings::AllowRunningInsecureContent, false);
 
     // Injecting anti-fingerprinting script at document creation
-    QFile scriptFile(":/scripts/antiFingerprint.js");
-    if(scriptFile.open(QIODevice::ReadOnly)) {
-        QByteArray scriptCode = scriptFile.readAll();
+    QFile antiFingerprint(":/scripts/antiFingerprint.js");
+    if(antiFingerprint.open(QIODevice::ReadOnly)) {
+        QByteArray scriptCode = antiFingerprint.readAll();
 
         QWebEngineScript antiFP;
         antiFP.setName("antiFingerprint");
@@ -153,6 +153,20 @@ Browser::Browser(const QString &initialUrl) {
         antiFP.setSourceCode(QString::fromUtf8(scriptCode));
 
         profile->scripts()->insert(antiFP);
+    }
+
+    QFile ytAdBlock(":/scripts/ytAdBlock.js");
+    if(ytAdBlock.open(QIODevice::ReadOnly)) {
+        QByteArray scriptCode = ytAdBlock.readAll();
+
+        QWebEngineScript ytAB;
+        ytAB.setName("ytAdBlock");
+        ytAB.setInjectionPoint(QWebEngineScript::DocumentCreation);
+        ytAB.setRunsOnSubFrames(true);
+        ytAB.setWorldId(QWebEngineScript::MainWorld);
+        ytAB.setSourceCode(QString::fromUtf8(scriptCode));
+
+        profile->scripts()->insert(ytAB);
     }
 
     m_downloadManager = DownloadManager::instance();
@@ -805,8 +819,8 @@ void Browser::createToolbar() {
 
     toolbar->addWidget(urlBar);
 
-    QAction* extensionsAction = toolbar->addAction("</>");
-    extensionsButton = qobject_cast<QToolButton*>(toolbar->widgetForAction(extensionsAction));
+    // QAction* extensionsAction = toolbar->addAction("</>");
+    // extensionsButton = qobject_cast<QToolButton*>(toolbar->widgetForAction(extensionsAction));
 
     if (extensionsButton) {
         extensionsButton->setCursor(Qt::PointingHandCursor);
