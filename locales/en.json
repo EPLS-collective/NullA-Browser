@@ -120,5 +120,9 @@ Thank you for using NullA Browser!",
     "close_tab": "Close Tab",
     "close_other_tabs": "Close Other Tabs",
 
-    "search": "Search..."
+    "search": "Search...",
+
+    "adblock_title": "Ad & Tracer Blocking",
+    "adblock_label": "Ad Block",
+    "adblock_desc": "Blocks annoying ads and tracking scripts to protect your online privacy. We recommend keeping this enabled for a faster and safer browsing experience."
 }

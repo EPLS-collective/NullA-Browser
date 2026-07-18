@@ -155,19 +155,9 @@ Browser::Browser(const QString &initialUrl) {
         profile->scripts()->insert(antiFP);
     }
 
-    QFile ytAdBlock(":/scripts/ytAdBlock.js");
-    if(ytAdBlock.open(QIODevice::ReadOnly)) {
-        QByteArray scriptCode = ytAdBlock.readAll();
-
-        QWebEngineScript ytAB;
-        ytAB.setName("ytAdBlock");
-        ytAB.setInjectionPoint(QWebEngineScript::DocumentCreation);
-        ytAB.setRunsOnSubFrames(true);
-        ytAB.setWorldId(QWebEngineScript::MainWorld);
-        ytAB.setSourceCode(QString::fromUtf8(scriptCode));
-
-        profile->scripts()->insert(ytAB);
-    }
+    adBlocker = new Interceptor(profile);
+    profile->setUrlRequestInterceptor(adBlocker);
+    setAdBlockEnabled(settings->value("adBlockEnabled", true).toBool());
 
     m_downloadManager = DownloadManager::instance();
 
@@ -175,6 +165,9 @@ Browser::Browser(const QString &initialUrl) {
 
     // Ad-Blocker initialization and filter list fetching
     adBlocker = new Interceptor(profile);
+    adBlocker = new Interceptor(profile);
+    profile->setUrlRequestInterceptor(adBlocker);
+    adBlocker->setEnabled(settings->value("adBlockEnabled", true).toBool());
     profile->setUrlRequestInterceptor(adBlocker);
 
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
@@ -967,6 +960,10 @@ void Browser::createToolbar() {
                         }
                     });
 
+                    connect(dlg, &SettingsDialog::adBlockToggled, this, [this](bool enabled){
+                        setAdBlockEnabled(enabled);
+                    });
+
                     dlg->open();
                 });
 }
@@ -1521,10 +1518,41 @@ void Browser::loadCookiesFromJson() {
     }
 }
 
+void Browser::setAdBlockEnabled(bool enabled) {
+    adBlocker->setEnabled(enabled);
+
+    QList<QWebEngineScript> existing = profile->scripts()->find("ytAdBlock");
+
+    if (enabled) {
+        if (existing.isEmpty()) {
+            QFile ytAdBlock(":/scripts/ytAdBlock.js");
+            if (ytAdBlock.open(QIODevice::ReadOnly)) {
+                QByteArray scriptCode = ytAdBlock.readAll();
+
+                QWebEngineScript ytAB;
+                ytAB.setName("ytAdBlock");
+                ytAB.setInjectionPoint(QWebEngineScript::DocumentCreation);
+                ytAB.setRunsOnSubFrames(true);
+                ytAB.setWorldId(QWebEngineScript::MainWorld);
+                ytAB.setSourceCode(QString::fromUtf8(scriptCode));
+
+                profile->scripts()->insert(ytAB);
+            }
+        }
+    } else {
+        for (const QWebEngineScript &s : existing) {
+            profile->scripts()->remove(s);
+        }
+    }
+}
+
 void Browser::showSettings() {
     SettingsDialog *dialog = new SettingsDialog(profile, this);
 
     connect(dialog, &SettingsDialog::cookieDeleted, this, &Browser::deleteCookie);
+    connect(dialog, &SettingsDialog::adBlockToggled, this, [this](bool enabled){
+        adBlocker->setEnabled(enabled);
+    });
 
     dialog->show();
 }

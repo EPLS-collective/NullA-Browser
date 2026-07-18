@@ -120,5 +120,9 @@ Lazarus
     "close_tab": "Închide tabul",
     "close_other_tabs": "Închide celelalte taburi",
 
-    "search": "Caută..."
+    "search": "Caută...",
+
+    "adblock_title": "Blocare Reclame și Tracker-e",
+    "adblock_label": "AdBlock",
+    "adblock_desc": "Blochează reclamele enervante și scripturile de urmărire pentru a-ți proteja confidențialitatea online. Îți recomandăm să lași această opțiune activată pentru o navigare mai rapidă și mai sigură."
 }

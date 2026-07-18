@@ -120,5 +120,9 @@ NullA Browser kullandığınız için teşekkür ederiz!",
     "close_tab": "Sekmeyi Kapat",
     "close_other_tabs": "Diğer Sekmeleri Kapat",
 
-    "search": "Ara..."
+    "search": "Ara...",
+
+    "adblock_title": "Reklam ve İzleyici Engelleme",
+    "adblock_label": "AdBlock",
+    "adblock_desc": "Rahatsız edici reklamları ve izleme scriptlerini engelleyerek çevrimiçi gizliliğinizi korur. Daha hızlı ve güvenli bir tarama deneyimi için bu seçeneği etkin tutmanızı öneririz."
 }

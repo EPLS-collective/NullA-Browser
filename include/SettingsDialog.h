@@ -30,6 +30,7 @@ signals:
     void themeChanged(int index);
     void searchEngineChanged(const QString& engine);
     void cookieDeleted(const QString &domain, const QString &name);
+    void adBlockToggled(bool enabled);
 
 private slots:
     void addSearchEngine();

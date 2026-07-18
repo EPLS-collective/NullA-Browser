@@ -275,6 +275,27 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     addDescription(Localization::qget("cookies_desc"), layout);
     layout->addWidget(cookiesList);
 
+    // Ad Block
+    QLabel* adBlockTitle = new QLabel(Localization::qget("adblock_title"));
+    adBlockTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
+
+    QHBoxLayout* adBlockLayout = new QHBoxLayout();
+    QLabel* adBlockLabel = new QLabel(Localization::qget("adblock_label"));
+    adBlockLabel->setFixedWidth(65);
+    adBlockLabel->setStyleSheet("background: none;");
+
+    QComboBox* adBlockCombo = new QComboBox();
+    adBlockCombo = new SafeComboBox();
+    adBlockCombo->addItems({Localization::qget("enabled"), Localization::qget("disabled")});
+    adBlockCombo->setCurrentIndex(settings->value("adBlockEnabled", true).toBool() ? 0 : 1);
+
+    adBlockLayout->addWidget(adBlockLabel);
+    adBlockLayout->addWidget(adBlockCombo, 1);
+
+    layout->addWidget(adBlockTitle);
+    addDescription(Localization::qget("adblock_desc"), layout);
+    layout->addLayout(adBlockLayout);
+
     // Browser Management
     QLabel* manageTitle = new QLabel(Localization::qget("manage_title"));
     manageTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
@@ -489,6 +510,12 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
         settings->setValue("enableJS", enabled);
         if(m_profile)
             m_profile->settings()->setAttribute(QWebEngineSettings::JavascriptEnabled, enabled);
+    });
+
+    connect(adBlockCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index){
+        bool enabled = (index == 0);
+        settings->setValue("adBlockEnabled", enabled);
+        emit adBlockToggled(enabled);
     });
 
     connect(cacheCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, clearCacheBtn](int newIndex){

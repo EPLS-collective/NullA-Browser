@@ -42,8 +42,9 @@ bool Interceptor::isBlocked(const QString &host) const {
     return false;
 }
 
-void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info)
-{
+void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
+    if (!m_enabled) return;
+
     if (info.resourceType() == QWebEngineUrlRequestInfo::ResourceTypeMainFrame)
         return;
 

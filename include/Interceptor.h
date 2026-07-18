@@ -24,10 +24,13 @@ public:
     void interceptRequest(QWebEngineUrlRequestInfo &info) override;
     void addBlockedDomain(const QString &domain);
     bool isBlocked(const QString &host) const;
+    void setEnabled(bool enabled) { m_enabled = enabled; }
+    bool isEnabled() const { return m_enabled; }
 
 private:
     std::unordered_set<std::u16string> blockedDomains;
     mutable QMutex mutex;
+    bool m_enabled = true;
 };
 
 #endif // INTERCEPTOR_H

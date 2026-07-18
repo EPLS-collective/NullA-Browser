@@ -121,5 +121,11 @@ Merci d'utiliser NullA Browser !",
     "close_tab": "Fermer l’onglet",
     "close_other_tabs": "Fermer les autres onglets",
 
-    "search": "Rechercher..."
+    "search": "Rechercher...",
+
+    "search": "Rechercher...",
+
+    "adblock_title": "Blocage des publicités et des traqueurs",
+    "adblock_label": "AdBlock",
+    "adblock_desc": "Bloque les publicités gênantes et les scripts de suivi pour protéger votre vie privée en ligne. Nous recommandons de garder cette option activée pour une navigation plus rapide et plus sûre."
 }

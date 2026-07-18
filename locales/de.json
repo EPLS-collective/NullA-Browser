@@ -120,5 +120,9 @@ Danke, dass du NullA Browser benutzt!",
     "close_tab": "Tab schließen",
     "close_other_tabs": "Andere Tabs schließen",
 
-    "search": "Suchen..."
+    "search": "Suchen...",
+
+    "adblock_title": "Werbe & Tracker Blockierung",
+    "adblock_label": "AdBlock",
+    "adblock_desc": "Blockiert lästige Werbung und Tracking-Skripte, um deine Privatsphäre im Internet zu schützen. Wir empfehlen, diese Option aktiviert zu lassen, für ein schnelleres und sichereres Surferlebnis."
 }

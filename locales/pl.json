@@ -121,5 +121,9 @@ Dziękujemy za korzystanie z przeglądarki NullA!",
     "close_tab": "Zamknij kartę",
     "close_other_tabs": "Zamknij inne karty",
 
-    "search": "Szukaj..."
+    "search": "Szukaj...",
+
+    "adblock_title": "Blokowanie reklam i śledzenia",
+    "adblock_label": "AdBlock",
+    "adblock_desc": "Blokuje irytujące reklamy i skrypty śledzące, aby chronić Twoją prywatność online. Zalecamy pozostawienie tej opcji włączonej dla szybszego i bezpieczniejszego przeglądania."
 }

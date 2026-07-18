@@ -120,5 +120,9 @@ Salamat sa paggamit ng NullA Browser!",
     "close_tab": "Isara ang Tab",
     "close_other_tabs": "Isara ang Ibang Tabs",
 
-    "search": "Maghanap..."
+    "search": "Maghanap...",
+
+    "adblock_title": "Pagharang sa Ads at Tracker",
+    "adblock_label": "AdBlock",
+    "adblock_desc": "Humaharang sa nakaka-inis na ads at tracking scripts upang protektahan ang iyong privacy online. Inirerekomenda naming panatilihin itong naka-enable para sa mas mabilis at mas ligtas na karanasan sa pag-browse."
 }

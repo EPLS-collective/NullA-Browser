@@ -120,5 +120,9 @@ Lazarus
     "close_tab": "Cerrar pestaña",
     "close_other_tabs": "Cerrar otras pestañas",
 
-    "search": "Buscar..."
+    "search": "Buscar...",
+
+    "adblock_title": "Bloqueo de Anuncios y Rastreadores",
+    "adblock_label": "AdBlock",
+    "adblock_desc": "Bloquea anuncios molestos y scripts de rastreo para proteger tu privacidad en línea. Recomendamos mantener esta opción activada para una navegación más rápida y segura."
 }

@@ -113,6 +113,8 @@ private:
     void setupExtensionsButton();
     QToolButton* extensionsButton = nullptr;
     void extractZip(const QString &zipPath, const QString &destDir);
+
+    void setAdBlockEnabled(bool enabled);
 };
 
 #endif // BROWSER_H
