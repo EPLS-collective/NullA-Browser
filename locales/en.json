@@ -135,5 +135,7 @@ Thank you for using NullA Browser!",
     "update_status_failed": "Could not check for updates. Please try again later.",
     "update_available_tooltip": "New version available (v%1) - click to view",
     "update_notify_title": "Update Available",
-    "update_notify_text": "NullA Browser v%1 is now available. Open Settings to view details and download it."
+    "update_notify_text": "NullA Browser v%1 is now available. Open Settings to view details and download it.",
+    "update_status_downloading": "Downloading update...",
+    "download_install_btn": "Download & Install"
 }

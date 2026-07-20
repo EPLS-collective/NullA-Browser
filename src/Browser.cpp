@@ -1587,11 +1587,11 @@ void Browser::showSettings() {
     dialog->show();
 }
 
-void Browser::onUpdateAvailable(const QString &version, const QString &url, const QString &notes) {
-    m_pendingUpdateDownloadUrl = downloadUrl;
-
+void Browser::onUpdateAvailable(const QString &version, const QString &url, const QString &notes, const QString &downloadUrl) {
     Q_UNUSED(notes);
     Q_UNUSED(url);
+
+    m_pendingUpdateDownloadUrl = downloadUrl;
 
     if (updateBadge && settingsButton) {
         updateBadge->setVisible(true);

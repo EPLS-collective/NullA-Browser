@@ -114,6 +114,7 @@ private:
     QToolButton* settingsButton = nullptr;
     QLabel* updateBadge = nullptr;
     void positionUpdateBadge();
+    QString m_pendingUpdateDownloadUrl;
 
     QMap<QString, QString> searchEngines;
     QString currentSearchEngine;

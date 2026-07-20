@@ -17,7 +17,11 @@ class QNetworkReply;
 class UpdateChecker : public QObject {
     Q_OBJECT
 public:
+    explicit UpdateChecker(QObject* parent = nullptr);
+
+    void checkForUpdates();
     void downloadUpdate(const QString &downloadUrl);
+    QString currentVersion() const;
 
 signals:
     void updateAvailable(const QString &latestVersion, const QString &releaseUrl,
@@ -34,6 +38,9 @@ private slots:
 private:
     QNetworkAccessManager* m_manager;
     QNetworkReply* m_downloadReply = nullptr;
+
+    static QString normalizeVersion(QString v);
+    static int compareVersions(const QString &a, const QString &b);
 };
 
 #endif // UPDATECHECKER_H
