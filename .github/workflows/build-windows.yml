@@ -37,7 +37,7 @@ jobs:
           host: windows
           target: desktop
           arch: "win64_msvc2022_64"
-          modules: "qtwebengine qtwebchannel qtpositioning qtmultimedia"
+          modules: "qtwebengine qtwebchannel qtpositioning qtmultimedia qtsvg"
 
       - name: Add Qt bin to PATH
         shell: powershell
@@ -47,7 +47,7 @@ jobs:
 
       - name: Configure CMake
         shell: cmd
-        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64" -DMOC_EXECUTABLE="D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64/bin/moc.exe"
+        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64" -DMOC_EXECUTABLE="D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64/bin/moc.exe" -DNULLA_VERSION="${{ github.event.inputs.version }}"
 
       - name: Build
         run: cmake --build build --config Release
