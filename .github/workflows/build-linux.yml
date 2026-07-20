@@ -31,10 +31,10 @@ jobs:
           host: linux
           target: desktop
           arch: "linux_gcc_64"
-          modules: "qtwebengine qtwebchannel qtpositioning qtmultimedia"
+          modules: "qtwebengine qtwebchannel qtpositioning qtmultimedia qtsvg"
 
       - name: Configure CMake
-        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DNULLA_VERSION="${{ github.event.inputs.version }}"
 
       - name: Build
         run: cmake --build build
