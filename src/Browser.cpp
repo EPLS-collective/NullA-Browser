@@ -10,6 +10,7 @@
 #include "../include/Localization.h"
 #include "../include/DownloadManager.h"
 #include "../include/Render.h"
+#include "../include/UpdateChecker.h"
 #include <QNetworkAccessManager>
 #include <QWebEngineFullScreenRequest>
 #include <QWebEngineSettings>
@@ -839,6 +840,20 @@ void Browser::createToolbar() {
         }
     }
 
+    settingsButton = qobject_cast<QToolButton*>(toolbar->widgetForAction(settingsAction));
+    if (settingsButton) {
+        updateBadge = new QLabel(settingsButton);
+        updateBadge->setFixedSize(10, 10);
+        updateBadge->setStyleSheet(R"(
+            background-color: #2ecc71;
+            border-radius: 5px;
+            border: 2px solid #1e2327;
+        )");
+        updateBadge->setAttribute(Qt::WA_TransparentForMouseEvents);
+        updateBadge->setVisible(false);
+        positionUpdateBadge();
+    }
+
     connect(favoriteButton, &QPushButton::clicked, this, [this]() {
         if (TabPage* page = currentTabPage()) {
             QString url = page->webView()->url().toString();
@@ -925,6 +940,8 @@ void Browser::createToolbar() {
                 connect(urlBar, &QLineEdit::returnPressed, this, &Browser::handleUrlBarSubmit);
 
                 connect(settingsAction, &QAction::triggered, this, [this]() {
+                    if (updateBadge) updateBadge->setVisible(false);
+
                     SettingsDialog* dlg = new SettingsDialog(profile, this);
                     dlg->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -966,6 +983,15 @@ void Browser::createToolbar() {
 
                     dlg->open();
                 });
+}
+
+void Browser::positionUpdateBadge() {
+    if (!settingsButton || !updateBadge) return;
+
+    int x = settingsButton->width() - updateBadge->width() + 2;
+    int y = settingsButton->height() - updateBadge->height() + 2;
+    updateBadge->move(x, y);
+    updateBadge->raise();
 }
 
 void Browser::handleTabChange(int index) {
@@ -1381,6 +1407,8 @@ void Browser::mousePressEvent(QMouseEvent* event) {
 void Browser::resizeEvent(QResizeEvent* e) {
     QMainWindow::resizeEvent(e);
 
+    positionUpdateBadge();
+
     if (suggestionList && suggestionList->isVisible() && urlBar) {
         suggestionList->setFixedWidth(urlBar->width());
         suggestionList->move(urlBar->mapToGlobal(QPoint(0, urlBar->height())));
@@ -1554,7 +1582,35 @@ void Browser::showSettings() {
         adBlocker->setEnabled(enabled);
     });
 
+    dialog->setUpdateDownloadUrl(m_pendingUpdateDownloadUrl);
+
     dialog->show();
+}
+
+void Browser::onUpdateAvailable(const QString &version, const QString &url, const QString &notes) {
+    m_pendingUpdateDownloadUrl = downloadUrl;
+
+    Q_UNUSED(notes);
+    Q_UNUSED(url);
+
+    if (updateBadge && settingsButton) {
+        updateBadge->setVisible(true);
+        positionUpdateBadge();
+        settingsButton->setToolTip(Localization::qget("update_available_tooltip").arg(version));
+    }
+
+    QString lastNotified = settings->value("lastNotifiedUpdateVersion").toString();
+    if (lastNotified != version) {
+        settings->setValue("lastNotifiedUpdateVersion", version);
+
+        QMessageBox::information(this,
+                                 Localization::qget("update_notify_title"),
+                                 Localization::qget("update_notify_text").arg(version));
+    }
+}
+
+void Browser::onUpdateCheckFailed(const QString &error) {
+    qWarning() << "Update check failed:" << error;
 }
 
 void Browser::deleteCookie(const QString &domain, const QString &name) {

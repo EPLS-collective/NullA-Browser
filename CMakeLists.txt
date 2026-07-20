@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(NullA VERSION 1.0.0 LANGUAGES CXX)
 
+set(NULLA_VERSION "0.0.0-dev" CACHE STRING "Application version injected at build time.")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -67,6 +69,8 @@ endif()
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME} PRIVATE DEBUG_MODE)
 endif()
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE APP_VERSION="${NULLA_VERSION}")
 
 if(WIN32)
     target_sources(${PROJECT_NAME} PRIVATE

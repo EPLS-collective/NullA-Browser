@@ -16,6 +16,7 @@
 #include <QWebEngineSettings>
 #include <QMenu>
 #include <QAction>
+#include <QProcess>
 #include <QTimer>
 #include <QScrollArea>
 #include <QVBoxLayout>
@@ -358,6 +359,82 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
     layout->addLayout(cacheLayout);
     layout->addWidget(clearCacheBtn);
     layout->addWidget(resetProfileBtn);
+
+    QLabel* updateTitle = new QLabel(Localization::qget("update_title"));
+    updateTitle->setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px; background: none;");
+
+    m_updateChecker = new UpdateChecker(this);
+
+    updateStatusLabel = new QLabel(
+        QString("%1: v%2").arg(Localization::qget("current_version_label"), m_updateChecker->currentVersion())
+    );
+    updateStatusLabel->setWordWrap(true);
+    updateStatusLabel->setStyleSheet("background: none;");
+
+    checkUpdatesBtn = new QPushButton(Localization::qget("check_updates_btn"));
+    checkUpdatesBtn->setMinimumHeight(35);
+
+    connect(checkUpdatesBtn, &QPushButton::clicked, this, [this]() {
+        if (m_updateReady) {
+            startUpdateDownload();
+            return;
+        }
+        checkUpdatesBtn->setEnabled(false);
+        updateStatusLabel->setText(Localization::qget("update_status_checking"));
+        m_updateChecker->checkForUpdates();
+    });
+
+    connect(m_updateChecker, &UpdateChecker::updateAvailable, this,
+            [this](const QString &version, const QString &url, const QString &notes, const QString &downloadUrl) {
+                Q_UNUSED(notes);
+                Q_UNUSED(url);
+                m_pendingDownloadUrl = downloadUrl;
+                m_updateReady = true;
+                checkUpdatesBtn->setEnabled(true);
+                checkUpdatesBtn->setText(Localization::qget("download_install_btn"));
+                updateStatusLabel->setText(Localization::qget("update_status_available").arg(version));
+            });
+
+    connect(m_updateChecker, &UpdateChecker::upToDate, this, [this]() {
+        checkUpdatesBtn->setEnabled(true);
+        updateStatusLabel->setText(Localization::qget("update_status_uptodate"));
+    });
+
+    connect(m_updateChecker, &UpdateChecker::checkFailed, this, [this](const QString &error) {
+        Q_UNUSED(error);
+        checkUpdatesBtn->setEnabled(true);
+        updateStatusLabel->setText(Localization::qget("update_status_failed"));
+    });
+
+    connect(m_updateChecker, &UpdateChecker::downloadProgress, this,
+            [this](qint64 received, qint64 total) {
+                if (total > 0) {
+                    updateStatusLabel->setText(QString("%1 / %2 MB")
+                    .arg(received / 1048576.0, 0, 'f', 1)
+                    .arg(total / 1048576.0, 0, 'f', 1));
+                }
+            });
+
+    connect(m_updateChecker, &UpdateChecker::downloadFinished, this,
+            [this](const QString &filePath) {
+                QProcess::startDetached(filePath, {
+                    "/VERYSILENT", "/SP-", "/NORESTART",
+                    "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS"
+                });
+                QApplication::quit();
+            });
+
+    connect(m_updateChecker, &UpdateChecker::downloadFailed, this,
+            [this](const QString &error) {
+                Q_UNUSED(error);
+                checkUpdatesBtn->setEnabled(true);
+                updateStatusLabel->setText(Localization::qget("update_status_failed"));
+            });
+
+    layout->addWidget(updateTitle);
+    layout->addWidget(updateStatusLabel);
+    layout->addWidget(checkUpdatesBtn);
+
     layout->addStretch();
 
     this->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -768,4 +845,18 @@ void SettingsDialog::addSearchEngine() {
     engines.append(name + "|" + url);
 
     settings->setValue("customSearchEngines", engines);
+}
+
+void SettingsDialog::setUpdateDownloadUrl(const QString &url) {
+    if (!url.isEmpty()) {
+        m_pendingDownloadUrl = url;
+        m_updateReady = true;
+        checkUpdatesBtn->setText(Localization::qget("download_install_btn"));
+    }
+}
+
+void SettingsDialog::startUpdateDownload() {
+    checkUpdatesBtn->setEnabled(false);
+    updateStatusLabel->setText(Localization::qget("update_status_downloading"));
+    m_updateChecker->downloadUpdate(m_pendingDownloadUrl);
 }

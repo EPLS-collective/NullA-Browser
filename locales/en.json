@@ -124,5 +124,16 @@ Thank you for using NullA Browser!",
 
     "adblock_title": "Ad & Tracer Blocking",
     "adblock_label": "Ad Block",
-    "adblock_desc": "Blocks annoying ads and tracking scripts to protect your online privacy. We recommend keeping this enabled for a faster and safer browsing experience."
+    "adblock_desc": "Blocks annoying ads and tracking scripts to protect your online privacy. We recommend keeping this enabled for a faster and safer browsing experience.",
+
+    "update_title": "Updates",
+    "current_version_label": "Current version",
+    "check_updates_btn": "Check for Updates",
+    "update_status_checking": "Checking for updates...",
+    "update_status_available": "A new version (v%1) is available!",
+    "update_status_uptodate": "You're up to date.",
+    "update_status_failed": "Could not check for updates. Please try again later.",
+    "update_available_tooltip": "New version available (v%1) - click to view",
+    "update_notify_title": "Update Available",
+    "update_notify_text": "NullA Browser v%1 is now available. Open Settings to view details and download it."
 }

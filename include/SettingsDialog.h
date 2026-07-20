@@ -18,6 +18,7 @@
 #include <QMessageBox>
 #include <QDir>
 #include <QInputDialog>
+#include "UpdateChecker.h"
 
 class SettingsDialog : public QDialog {
     Q_OBJECT
@@ -25,6 +26,7 @@ public:
     explicit SettingsDialog(QWebEngineProfile* profile, QWidget* parent = nullptr);
     void updateTheme(int themeIndex);
     int getSelectedTheme() const;
+    void setUpdateDownloadUrl(const QString &url);
 
 signals:
     void themeChanged(int index);
@@ -34,6 +36,7 @@ signals:
 
 private slots:
     void addSearchEngine();
+    void startUpdateDownload();
 
 private:
     bool isSystemDarkTheme();
@@ -44,6 +47,12 @@ private:
     QComboBox* cacheCombo;
     QPushButton* addEngineBtn;
     QSettings* settings;
+
+    UpdateChecker* m_updateChecker;
+    QPushButton* checkUpdatesBtn;
+    QLabel* updateStatusLabel;
+    QString m_pendingDownloadUrl;
+    bool m_updateReady = false;
 };
 
 #endif // SETTINGSDIALOG_H

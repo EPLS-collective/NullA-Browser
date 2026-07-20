@@ -25,6 +25,7 @@
 #include "TabPage.h"
 #include "SettingsDialog.h"
 #include "DownloadManager.h"
+#include "UpdateChecker.h"
 #include "Render.h"
 #include <QMediaPlayer>
 #include <QAudioOutput>
@@ -63,6 +64,8 @@ private slots:
     void closeTab(int index);
     void updateFavoriteButtonVisibility();
     void checkAndUpdateFavoriteButton();
+    void onUpdateAvailable(const QString &version, const QString &url, const QString &notes, const QString &downloadUrl);
+    void onUpdateCheckFailed(const QString &error);
 
 private:
     bool isFullscreen = false;
@@ -105,6 +108,12 @@ private:
     void removeBookmark(const QString& url);
 
     RenderController* renderController = nullptr;
+
+    UpdateChecker* m_updateChecker = nullptr;
+    QTimer* updateCheckTimer = nullptr;
+    QToolButton* settingsButton = nullptr;
+    QLabel* updateBadge = nullptr;
+    void positionUpdateBadge();
 
     QMap<QString, QString> searchEngines;
     QString currentSearchEngine;
