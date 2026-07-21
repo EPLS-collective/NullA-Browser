@@ -22,6 +22,7 @@ public:
     void checkForUpdates();
     void downloadUpdate(const QString &downloadUrl);
     QString currentVersion() const;
+    void installUpdate(const QString &archivePath);
 
 signals:
     void updateAvailable(const QString &latestVersion, const QString &releaseUrl,

@@ -77,7 +77,7 @@
     "cache_desc": "Cache‑ul „Memorie” echilibrează viteza și confidențialitatea prin ștergerea datelor la ieșire, în timp ce „Disk” păstrează datele pentru încărcare mai rapidă. „Fără cache” asigură că nu se stochează date ale site‑urilor, oferind cea mai mare confidențialitate cu prețul vitezei.",
 
     "credits_title": "Credite NullA",
-    "credits_text": "NullA Browser v26.7.1
+    "credits_text": "NullA Browser v%1
 Dezvoltat de EPLS (Electus Progressive Liberation Software)
 
 Mulțumiri:
@@ -124,5 +124,18 @@ Lazarus
 
     "adblock_title": "Blocare Reclame și Tracker-e",
     "adblock_label": "AdBlock",
-    "adblock_desc": "Blochează reclamele enervante și scripturile de urmărire pentru a-ți proteja confidențialitatea online. Îți recomandăm să lași această opțiune activată pentru o navigare mai rapidă și mai sigură."
+    "adblock_desc": "Blochează reclamele enervante și scripturile de urmărire pentru a-ți proteja confidențialitatea online. Îți recomandăm să lași această opțiune activată pentru o navigare mai rapidă și mai sigură.",
+
+    "update_title": "Actualizări",
+    "current_version_label": "Versiunea curentă",
+    "check_updates_btn": "Caută actualizări",
+    "update_status_checking": "Se caută actualizări...",
+    "update_status_available": "O versiune nouă (v%1) este disponibilă!",
+    "update_status_uptodate": "Ești la zi.",
+    "update_status_failed": "Nu s-au putut căuta actualizări. Încearcă din nou mai târziu.",
+    "update_available_tooltip": "Versiune nouă disponibilă (v%1) - click pentru a vedea",
+    "update_notify_title": "Actualizare disponibilă",
+    "update_notify_text": "NullA Browser v%1 este acum disponibil. Deschide Setările pentru a vedea detaliile și a-l descărca.",
+    "update_status_downloading": "Se descarcă actualizarea...",
+    "download_install_btn": "Descarcă"
 }

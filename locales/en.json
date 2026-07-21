@@ -77,7 +77,7 @@
     "cache_desc": "'Memory' cache balances speed and privacy by wiping data on exit, while 'Disk' persists data for faster loading. 'No Cache' ensures no site data is stored, providing the highest privacy at the cost of speed.",
 
     "credits_title": "NullA Credits",
-    "credits_text": "NullA Browser v26.7.1
+    "credits_text": "NullA Browser v%1
 Developed by EPLS (Electus Progressive Liberation Software)
 
 Thanks to:
@@ -137,5 +137,5 @@ Thank you for using NullA Browser!",
     "update_notify_title": "Update Available",
     "update_notify_text": "NullA Browser v%1 is now available. Open Settings to view details and download it.",
     "update_status_downloading": "Downloading update...",
-    "download_install_btn": "Download & Install"
+    "download_install_btn": "Download"
 }

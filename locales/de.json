@@ -77,7 +77,7 @@
     "cache_desc": "'Speicher' löscht beim Beenden, 'Disk' speichert für Geschwindigkeit, 'Kein Cache' speichert nichts.",
 
     "credits_title": "NullA Credits",
-    "credits_text": "NullA Browser v26.7.1
+    "credits_text": "NullA Browser v%1
 Entwickelt von EPLS (Electus Progressive Liberation Software)
 
 Danke an:
@@ -124,5 +124,18 @@ Danke, dass du NullA Browser benutzt!",
 
     "adblock_title": "Werbe & Tracker Blockierung",
     "adblock_label": "AdBlock",
-    "adblock_desc": "Blockiert lästige Werbung und Tracking-Skripte, um deine Privatsphäre im Internet zu schützen. Wir empfehlen, diese Option aktiviert zu lassen, für ein schnelleres und sichereres Surferlebnis."
+    "adblock_desc": "Blockiert lästige Werbung und Tracking-Skripte, um deine Privatsphäre im Internet zu schützen. Wir empfehlen, diese Option aktiviert zu lassen, für ein schnelleres und sichereres Surferlebnis.",
+
+    "update_title": "Updates",
+    "current_version_label": "Aktuelle Version",
+    "check_updates_btn": "Nach Updates suchen",
+    "update_status_checking": "Suche nach Updates...",
+    "update_status_available": "Eine neue Version (v%1) ist verfügbar!",
+    "update_status_uptodate": "Du bist auf dem neuesten Stand.",
+    "update_status_failed": "Updates konnten nicht überprüft werden. Bitte versuche es später erneut.",
+    "update_available_tooltip": "Neue Version verfügbar (v%1) - klicken zum Anzeigen",
+    "update_notify_title": "Update verfügbar",
+    "update_notify_text": "NullA Browser v%1 ist jetzt verfügbar. Öffne die Einstellungen, um Details zu sehen und es herunterzuladen.",
+    "update_status_downloading": "Update wird heruntergeladen...",
+    "download_install_btn": "Herunterladen"
 }

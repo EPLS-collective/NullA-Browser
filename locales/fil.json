@@ -77,7 +77,7 @@
     "cache_desc": "Ang 'Memory' cache ay balanse sa bilis at privacy dahil binubura ang data paglabas, habang ang 'Disk' ay nagse-save para mas mabilis mag-load. Ang 'No Cache' ay hindi nag-iimbak ng data, nagbibigay ng pinakamataas na privacy ngunit mas mabagal.",
 
     "credits_title": "Mga Kredito ng NullA",
-    "credits_text": "NullA Browser v26.7.1
+    "credits_text": "NullA Browser v%1
 Binuo ng EPLS (Electus Progressive Liberation Software)
 
 Pasasalamat sa:
@@ -124,5 +124,18 @@ Salamat sa paggamit ng NullA Browser!",
 
     "adblock_title": "Pagharang sa Ads at Tracker",
     "adblock_label": "AdBlock",
-    "adblock_desc": "Humaharang sa nakaka-inis na ads at tracking scripts upang protektahan ang iyong privacy online. Inirerekomenda naming panatilihin itong naka-enable para sa mas mabilis at mas ligtas na karanasan sa pag-browse."
+    "adblock_desc": "Humaharang sa nakaka-inis na ads at tracking scripts upang protektahan ang iyong privacy online. Inirerekomenda naming panatilihin itong naka-enable para sa mas mabilis at mas ligtas na karanasan sa pag-browse.",
+
+    "update_title": "Mga Update",
+    "current_version_label": "Kasalukuyang bersyon",
+    "check_updates_btn": "Suriin ang mga Update",
+    "update_status_checking": "Sinusuri ang mga update...",
+    "update_status_available": "May bagong bersyon (v%1) na available!",
+    "update_status_uptodate": "Ikaw ay updated.",
+    "update_status_failed": "Hindi ma-check ang mga update. Pakisubukang muli mamaya.",
+    "update_available_tooltip": "May available na bagong bersyon (v%1) - i-click para tingnan",
+    "update_notify_title": "May Available na Update",
+    "update_notify_text": "Available na ngayon ang NullA Browser v%1. Buksan ang Settings para tingnan ang mga detalye at i-download ito.",
+    "update_status_downloading": "Dina-download ang update...",
+    "download_install_btn": "I-download"
 }

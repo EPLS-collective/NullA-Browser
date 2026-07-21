@@ -17,6 +17,8 @@
 #include <QFile>
 #include <QDir>
 #include <QStandardPaths>
+#include <QCoreApplication>
+#include <QTextStream>
 #include <QProcess>
 
 #ifndef APP_VERSION
@@ -86,7 +88,11 @@ void UpdateChecker::onReplyFinished(QNetworkReply* reply) {
     const QJsonArray assets = obj.value("assets").toArray();
     for (const QJsonValue &v : assets) {
         const QString name = v.toObject().value("name").toString();
-        if (name.endsWith(".exe", Qt::CaseInsensitive)) {
+        #if defined(Q_OS_WIN)
+        if (name.endsWith(".zip", Qt::CaseInsensitive)) {
+        #else
+        if (name.endsWith(".tar.gz", Qt::CaseInsensitive)) {
+        #endif
             downloadUrl = v.toObject().value("browser_download_url").toString();
             break;
         }
@@ -142,6 +148,59 @@ void UpdateChecker::downloadUpdate(const QString &downloadUrl) {
         reply->deleteLater();
         emit downloadFinished(filePath);
     });
+}
+
+void UpdateChecker::installUpdate(const QString &archivePath) {
+    const QString appDir = QCoreApplication::applicationDirPath();
+    const QString appExe = QCoreApplication::applicationFilePath();
+    const QString tempBase = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    const QString extractDir = QDir(tempBase).filePath("nulla_update_extracted");
+
+    QDir(extractDir).removeRecursively();
+
+    #if defined(Q_OS_WIN)
+    const QString scriptPath = QDir(tempBase).filePath("nulla_update.bat");
+    QFile script(scriptPath);
+    if (!script.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit downloadFailed(QStringLiteral("Update script could not be created."));
+        return;
+    }
+    QTextStream out(&script);
+    out << "@echo off\r\n";
+    out << "timeout /t 2 /nobreak >nul\r\n";
+    out << "mkdir \"" << QDir::toNativeSeparators(extractDir) << "\"\r\n";
+    out << "tar -xf \"" << QDir::toNativeSeparators(archivePath) << "\" -C \"" << QDir::toNativeSeparators(extractDir) << "\"\r\n";
+    out << "robocopy \"" << QDir::toNativeSeparators(extractDir) << "\\NullA\" \"" << QDir::toNativeSeparators(appDir) << "\" /E /IS /IT >nul\r\n";
+    out << "start \"\" \"" << QDir::toNativeSeparators(appExe) << "\"\r\n";
+    out << "rmdir /s /q \"" << QDir::toNativeSeparators(extractDir) << "\"\r\n";
+    out << "del \"%~f0\"\r\n";
+    script.close();
+
+    QProcess::startDetached("cmd.exe", {"/c", scriptPath});
+    #else
+    const QString scriptPath = QDir(tempBase).filePath("nulla_update.sh");
+    QFile script(scriptPath);
+    if (!script.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit downloadFailed(QStringLiteral("Update script could not be created."));
+        return;
+    }
+    QTextStream out(&script);
+    out << "#!/bin/sh\n";
+    out << "sleep 2\n";
+    out << "mkdir -p \"" << extractDir << "\"\n";
+    out << "tar -xzf \"" << archivePath << "\" -C \"" << extractDir << "\"\n";
+    out << "cp -rf \"" << extractDir << "/NullA/.\" \"" << appDir << "/\"\n";
+    out << "chmod +x \"" << appExe << "\"\n";
+    out << "rm -rf \"" << extractDir << "\"\n";
+    out << "\"" << appExe << "\" &\n";
+    out << "rm -- \"$0\"\n";
+    script.close();
+    script.setPermissions(script.permissions() | QFileDevice::ExeOwner | QFileDevice::ExeGroup | QFileDevice::ExeOther);
+
+    QProcess::startDetached("/bin/sh", {scriptPath});
+    #endif
+
+    QCoreApplication::quit();
 }
 
 

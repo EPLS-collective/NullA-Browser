@@ -77,7 +77,7 @@
     "cache_desc": "'Bellek' önbelleği çıkışta verileri silerek hız ve gizlilik dengesini sağlar, 'Disk' daha hızlı yükleme için verileri saklar. 'Önbellek Yok' hiçbir site verisinin saklanmamasını sağlar ve en yüksek gizliliği sunar ancak hızdan ödün verir.",
 
     "credits_title": "NullA Kredileri",
-    "credits_text": "NullA Browser v26.7.1
+    "credits_text": "NullA Browser v%1
 EPLS (Electus Progressive Liberation Software) tarafından geliştirildi
 
 Teşekkürler:
@@ -124,5 +124,18 @@ NullA Browser kullandığınız için teşekkür ederiz!",
 
     "adblock_title": "Reklam ve İzleyici Engelleme",
     "adblock_label": "AdBlock",
-    "adblock_desc": "Rahatsız edici reklamları ve izleme scriptlerini engelleyerek çevrimiçi gizliliğinizi korur. Daha hızlı ve güvenli bir tarama deneyimi için bu seçeneği etkin tutmanızı öneririz."
+    "adblock_desc": "Rahatsız edici reklamları ve izleme scriptlerini engelleyerek çevrimiçi gizliliğinizi korur. Daha hızlı ve güvenli bir tarama deneyimi için bu seçeneği etkin tutmanızı öneririz.",
+
+    "update_title": "Güncellemeler",
+    "current_version_label": "Mevcut sürüm",
+    "check_updates_btn": "Güncellemeleri Kontrol Et",
+    "update_status_checking": "Güncellemeler kontrol ediliyor...",
+    "update_status_available": "Yeni bir sürüm (v%1) mevcut!",
+    "update_status_uptodate": "Güncelsiniz.",
+    "update_status_failed": "Güncellemeler kontrol edilemedi. Lütfen daha sonra tekrar deneyin.",
+    "update_available_tooltip": "Yeni sürüm mevcut (v%1) - görüntülemek için tıklayın",
+    "update_notify_title": "Güncelleme Mevcut",
+    "update_notify_text": "NullA Browser v%1 artık kullanılabilir. Detayları görmek ve indirmek için Ayarlar'ı açın.",
+    "update_status_downloading": "Güncelleme indiriliyor...",
+    "download_install_btn": "İndir"
 }

@@ -406,30 +406,23 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
         updateStatusLabel->setText(Localization::qget("update_status_failed"));
     });
 
-    connect(m_updateChecker, &UpdateChecker::downloadProgress, this,
-            [this](qint64 received, qint64 total) {
-                if (total > 0) {
-                    updateStatusLabel->setText(QString("%1 / %2 MB")
-                    .arg(received / 1048576.0, 0, 'f', 1)
-                    .arg(total / 1048576.0, 0, 'f', 1));
-                }
-            });
+    connect(m_updateChecker, &UpdateChecker::downloadProgress, this, [this](qint64 received, qint64 total) {
+        if (total > 0) {
+            updateStatusLabel->setText(QString("%1 / %2 MB")
+            .arg(received / 1048576.0, 0, 'f', 1)
+            .arg(total / 1048576.0, 0, 'f', 1));
+        }
+    });
 
-    connect(m_updateChecker, &UpdateChecker::downloadFinished, this,
-            [this](const QString &filePath) {
-                QProcess::startDetached(filePath, {
-                    "/VERYSILENT", "/SP-", "/NORESTART",
-                    "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS"
-                });
-                QApplication::quit();
-            });
+    connect(m_updateChecker, &UpdateChecker::downloadFinished, this, [this](const QString &filePath) {
+        m_updateChecker->installUpdate(filePath);
+    });
 
-    connect(m_updateChecker, &UpdateChecker::downloadFailed, this,
-            [this](const QString &error) {
-                Q_UNUSED(error);
-                checkUpdatesBtn->setEnabled(true);
-                updateStatusLabel->setText(Localization::qget("update_status_failed"));
-            });
+    connect(m_updateChecker, &UpdateChecker::downloadFailed, this, [this](const QString &error) {
+        Q_UNUSED(error);
+        checkUpdatesBtn->setEnabled(true);
+        updateStatusLabel->setText(Localization::qget("update_status_failed"));
+    });
 
     layout->addWidget(updateTitle);
     layout->addWidget(updateStatusLabel);
@@ -462,7 +455,7 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
             creditsData->timer->stop();
 
             QMessageBox::information(this, Localization::qget("credits_title"),
-            Localization::qget("credits_text"));
+            Localization::qget("credits_text").arg(m_updateChecker->currentVersion()));
         }
     });
 

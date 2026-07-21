@@ -77,7 +77,7 @@
     "cache_desc": "'Mémoire' équilibre vitesse et confidentialité en supprimant les données à la fermeture, 'Disque' conserve les données pour un chargement plus rapide. 'Sans cache' n'enregistre aucune donnée de site, offrant la meilleure confidentialité au prix de la vitesse.",
 
     "credits_title": "Crédits NullA",
-    "credits_text": "NullA Browser v26.7.1
+    "credits_text": "NullA Browser v%1
 Développé par EPLS (Electus Progressive Liberation Software)
 
 Merci à:
@@ -127,5 +127,18 @@ Merci d'utiliser NullA Browser !",
 
     "adblock_title": "Blocage des publicités et des traqueurs",
     "adblock_label": "AdBlock",
-    "adblock_desc": "Bloque les publicités gênantes et les scripts de suivi pour protéger votre vie privée en ligne. Nous recommandons de garder cette option activée pour une navigation plus rapide et plus sûre."
+    "adblock_desc": "Bloque les publicités gênantes et les scripts de suivi pour protéger votre vie privée en ligne. Nous recommandons de garder cette option activée pour une navigation plus rapide et plus sûre.",
+
+    "update_title": "Mises à jour",
+    "current_version_label": "Version actuelle",
+    "check_updates_btn": "Rechercher des mises à jour",
+    "update_status_checking": "Recherche de mises à jour...",
+    "update_status_available": "Une nouvelle version (v%1) est disponible !",
+    "update_status_uptodate": "Vous êtes à jour.",
+    "update_status_failed": "Impossible de rechercher des mises à jour. Veuillez réessayer plus tard.",
+    "update_available_tooltip": "Nouvelle version disponible (v%1) - cliquez pour voir",
+    "update_notify_title": "Mise à jour disponible",
+    "update_notify_text": "NullA Browser v%1 est maintenant disponible. Ouvrez les Paramètres pour voir les détails et la télécharger.",
+    "update_status_downloading": "Téléchargement de la mise à jour...",
+    "download_install_btn": "Télécharger"
 }

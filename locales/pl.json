@@ -78,7 +78,7 @@
     "cache_desc": "Pamięć podręczna „Pamięć” równoważy szybkość i prywatność, usuwając dane po zamknięciu programu, podczas gdy „Dysk” przechowuje dane dla szybszego ładowania. „Brak pamięci podręcznej” zapewnia najwyższy poziom prywatności kosztem szybkości działania.",
 
     "credits_title": "Twórcy NullA",
-    "credits_text": "NullA Browser v26.7.1
+    "credits_text": "NullA Browser v%1
 Stworzone przez EPLS (Electus Progressive Liberation Software)
 
 Podziękowania dla:
@@ -125,5 +125,18 @@ Dziękujemy za korzystanie z przeglądarki NullA!",
 
     "adblock_title": "Blokowanie reklam i śledzenia",
     "adblock_label": "AdBlock",
-    "adblock_desc": "Blokuje irytujące reklamy i skrypty śledzące, aby chronić Twoją prywatność online. Zalecamy pozostawienie tej opcji włączonej dla szybszego i bezpieczniejszego przeglądania."
+    "adblock_desc": "Blokuje irytujące reklamy i skrypty śledzące, aby chronić Twoją prywatność online. Zalecamy pozostawienie tej opcji włączonej dla szybszego i bezpieczniejszego przeglądania.",
+
+    "update_title": "Aktualizacje",
+    "current_version_label": "Obecna wersja",
+    "check_updates_btn": "Sprawdź aktualizacje",
+    "update_status_checking": "Sprawdzanie aktualizacji...",
+    "update_status_available": "Dostępna jest nowa wersja (v%1)!",
+    "update_status_uptodate": "Masz najnowszą wersję.",
+    "update_status_failed": "Nie udało się sprawdzić aktualizacji. Spróbuj ponownie później.",
+    "update_available_tooltip": "Dostępna nowa wersja (v%1) - kliknij, aby zobaczyć",
+    "update_notify_title": "Dostępna aktualizacja",
+    "update_notify_text": "NullA Browser v%1 jest już dostępny. Otwórz Ustawienia, aby zobaczyć szczegóły i pobrać aktualizację.",
+    "update_status_downloading": "Pobieranie aktualizacji...",
+    "download_install_btn": "Pobierz"
 }
