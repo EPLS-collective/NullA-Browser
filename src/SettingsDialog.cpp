@@ -840,11 +840,12 @@ void SettingsDialog::addSearchEngine() {
     settings->setValue("customSearchEngines", engines);
 }
 
-void SettingsDialog::setUpdateDownloadUrl(const QString &url) {
+void SettingsDialog::setUpdateDownloadUrl(const QString &url, const QString &version) {
     if (!url.isEmpty()) {
         m_pendingDownloadUrl = url;
         m_updateReady = true;
         checkUpdatesBtn->setText(Localization::qget("download_install_btn"));
+        updateStatusLabel->setText(Localization::qget("update_status_available").arg(version));
     }
 }
 

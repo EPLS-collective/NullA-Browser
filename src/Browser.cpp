@@ -254,6 +254,16 @@ Browser::Browser(const QString &initialUrl) {
     loadBookmarks();
     loadExtensions();
 
+    m_updateChecker = new UpdateChecker(this);
+    connect(m_updateChecker, &UpdateChecker::updateAvailable, this, &Browser::onUpdateAvailable);
+    connect(m_updateChecker, &UpdateChecker::checkFailed, this, &Browser::onUpdateCheckFailed);
+
+    m_updateChecker->checkForUpdates();
+
+    updateCheckTimer = new QTimer(this);
+    connect(updateCheckTimer, &QTimer::timeout, m_updateChecker, &UpdateChecker::checkForUpdates);
+    updateCheckTimer->start(6 * 60 * 60 * 1000); // 6H
+
     bookmarkContextMenu = new QMenu(this);
     QAction* deleteAction = bookmarkContextMenu->addAction(Localization::qget("bookmark_del"));
     connect(deleteAction, &QAction::triggered, this, [this]() {
@@ -944,6 +954,7 @@ void Browser::createToolbar() {
 
                     SettingsDialog* dlg = new SettingsDialog(profile, this);
                     dlg->setAttribute(Qt::WA_DeleteOnClose);
+                    dlg->setUpdateDownloadUrl(m_pendingUpdateDownloadUrl, m_pendingUpdateVersion);
 
                     connect(dlg, &SettingsDialog::cookieDeleted, this, &Browser::deleteCookie);
                     connect(dlg, &SettingsDialog::themeChanged, this, &Browser::applyTheme);
@@ -988,8 +999,8 @@ void Browser::createToolbar() {
 void Browser::positionUpdateBadge() {
     if (!settingsButton || !updateBadge) return;
 
-    int x = settingsButton->width() - updateBadge->width() + 2;
-    int y = settingsButton->height() - updateBadge->height() + 2;
+    int x = settingsButton->width() - updateBadge->width() - 4;
+    int y = settingsButton->height() - updateBadge->height() - 8;
     updateBadge->move(x, y);
     updateBadge->raise();
 }
@@ -1582,7 +1593,7 @@ void Browser::showSettings() {
         adBlocker->setEnabled(enabled);
     });
 
-    dialog->setUpdateDownloadUrl(m_pendingUpdateDownloadUrl);
+    dialog->setUpdateDownloadUrl(m_pendingUpdateDownloadUrl, m_pendingUpdateVersion);
 
     dialog->show();
 }
@@ -1592,20 +1603,23 @@ void Browser::onUpdateAvailable(const QString &version, const QString &url, cons
     Q_UNUSED(url);
 
     m_pendingUpdateDownloadUrl = downloadUrl;
+    m_pendingUpdateVersion = version;
+
+    QString lastNotified = settings->value("lastNotifiedUpdateVersion").toString();
+    bool alreadySeen = (lastNotified == version);
 
     if (updateBadge && settingsButton) {
-        updateBadge->setVisible(true);
+        updateBadge->setVisible(!alreadySeen);
         positionUpdateBadge();
         settingsButton->setToolTip(Localization::qget("update_available_tooltip").arg(version));
     }
 
-    QString lastNotified = settings->value("lastNotifiedUpdateVersion").toString();
-    if (lastNotified != version) {
+    if (!alreadySeen) {
         settings->setValue("lastNotifiedUpdateVersion", version);
 
         QMessageBox::information(this,
-                                 Localization::qget("update_notify_title"),
-                                 Localization::qget("update_notify_text").arg(version));
+        Localization::qget("update_notify_title"),
+        Localization::qget("update_notify_text").arg(version));
     }
 }
 

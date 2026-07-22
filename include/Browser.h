@@ -115,6 +115,7 @@ private:
     QLabel* updateBadge = nullptr;
     void positionUpdateBadge();
     QString m_pendingUpdateDownloadUrl;
+    QString m_pendingUpdateVersion;
 
     QMap<QString, QString> searchEngines;
     QString currentSearchEngine;

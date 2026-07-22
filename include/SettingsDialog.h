@@ -26,7 +26,7 @@ public:
     explicit SettingsDialog(QWebEngineProfile* profile, QWidget* parent = nullptr);
     void updateTheme(int themeIndex);
     int getSelectedTheme() const;
-    void setUpdateDownloadUrl(const QString &url);
+    void setUpdateDownloadUrl(const QString &url, const QString &version);
 
 signals:
     void themeChanged(int index);
