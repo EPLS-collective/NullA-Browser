@@ -12,7 +12,7 @@ NullA is a lightweight, privacy-first web browser built on Qt6 WebEngine. No tel
 Pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 Issues are tracked on:
-- [GitHub](https://github.com/Electus2000/NullA-Browser/issues)
+- [GitHub](https://github.com/EPLS-collective/NullA-Browser/issues)
 - [Codeberg](https://codeberg.org/EPLS/NullA-Browser/issues)
 - [Disroot](https://git.disroot.org/EPLS/NullA-Browser/issues)
 
