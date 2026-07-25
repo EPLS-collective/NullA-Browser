@@ -12,11 +12,11 @@ This guide is for people who just want to run NullA Browser. If you want to buil
 
 (If you'd rather get it straight from the repository instead of itch.io, it's also kept at `installation/dist/NullA Setup.exe`.)
 
-`NullA Setup.exe` is a small online installer: it always downloads and installs whatever the latest version is at the time you run it, so you never need to check back for a newer installer — the same `NullA Setup.exe` file keeps working correctly for every future release. An internet connection is required while it runs.
+`NullA Setup.exe` is a small online installer: it always downloads and installs whatever the latest version is at the time you run it, so you never need to check back for a newer installer, the same `NullA Setup.exe` file keeps working correctly for every future release. An internet connection is required while it runs.
 
-If the [Visual C++ Redistributable](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist) isn't already on your system, the installer installs it automatically in the background — no extra steps needed on your part.
+If the [Visual C++ Redistributable](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist) isn't already on your system, the installer installs it automatically in the background , no extra steps needed on your part.
 
-That's it — future updates can also be installed directly from inside the browser (Settings → Updates), so re-running the installer isn't necessary either.
+That's it, future updates can also be installed directly from inside the browser (Settings → Updates), so re-running the installer isn't necessary either.
 
 ---
 
@@ -43,7 +43,7 @@ nulla
 
 ## Updating
 
-However you installed NullA Browser, once it's running you don't need to repeat these steps for future versions — open **Settings → Updates** and use the in-app updater.
+However you installed NullA Browser, once it's running you don't need to repeat these steps for future versions, open **Settings → Updates** and use the in-app updater.
 
 ---
 
