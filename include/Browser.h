@@ -26,6 +26,7 @@
 #include "SettingsDialog.h"
 #include "DownloadManager.h"
 #include "UpdateChecker.h"
+#include "ExtensionStore.h"
 #include "Render.h"
 #include <QMediaPlayer>
 #include <QAudioOutput>
@@ -121,6 +122,11 @@ private:
     QString currentSearchEngine;
 
     void loadExtensions();
+    void loadExtensionScripts(const QString &extId);
+    void unloadExtensionScripts(const QString &extId);
+    void setExtensionEnabled(const QString &extId, bool enabled);
+    bool isExtensionEnabled(const QString &extId) const;
+    QMap<QString, QStringList> m_extensionScriptNames;
     void setupExtensionsButton();
     QToolButton* extensionsButton = nullptr;
     void extractZip(const QString &zipPath, const QString &destDir);

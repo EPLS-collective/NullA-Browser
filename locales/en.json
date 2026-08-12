@@ -137,5 +137,21 @@ Thank you for using NullA Browser!",
     "update_notify_title": "Update Available",
     "update_notify_text": "NullA Browser v%1 is now available. Open Settings to view details and download it.",
     "update_status_downloading": "Downloading update...",
-    "download_install_btn": "Download"
+    "download_install_btn": "Download",
+
+    "extension_title": "NullA Extensions",
+    "extension_search_placeholder": "Search extensions...",
+    "extension_loading": "Loading...",
+    "extension_count": "%1 extension(s) available",
+    "extension_install": "Install",
+    "extension_uninstall": "Uninstall",
+    "extension_installing": "Installing...",
+    "extension_enable": "Enable",
+    "extension_disable": "Disable",
+    "extension_install_success": "The extension was successfully installed.",
+    "extension_removed": "Extension removed.",
+    "extension_download_failed": "Download failed: %1",
+    "extension_fetch_failed": "Failed to load extension list: %1",
+    "extension_invalid_index": "Invalid extension index format."
+
 }

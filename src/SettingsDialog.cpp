@@ -642,6 +642,9 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
             QString bookmarkPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/bookmarks.json";
             QFile::remove(bookmarkPath);
 
+            QString extensionsPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
+            QDir(extensionsPath).removeRecursively();
+
             settings.setValue("cacheMode", 2);
             m_profile->setHttpCacheType(QWebEngineProfile::MemoryHttpCache);
 
