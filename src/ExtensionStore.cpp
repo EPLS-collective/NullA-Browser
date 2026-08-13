@@ -24,13 +24,29 @@
 #include <QDir>
 #include <QFile>
 #include <QMessageBox>
-#include <QSettings>
 #include <QApplication>
 #include <algorithm>
-
-#ifdef Q_OS_WIN
+#include <QPainter>
 #include <QSettings>
-#endif
+
+namespace {
+    class ExtensionRowWidget : public QWidget {
+    public:
+        explicit ExtensionRowWidget(const QColor &bg, QWidget *parent = nullptr)
+        : QWidget(parent), m_bg(bg) {}
+
+        void setBgColor(const QColor &c) { m_bg = c; update(); }
+
+    protected:
+        void paintEvent(QPaintEvent *) override {
+            QPainter p(this);
+            p.fillRect(rect(), m_bg);
+        }
+
+    private:
+        QColor m_bg;
+    };
+}
 
 const QString ExtensionStore::kIndexUrl =
     "https://electus2000.github.io/nulla-extensions/extensions.json";
@@ -55,7 +71,7 @@ ExtensionStore::ExtensionStore(QWidget *parent)
     layout->addWidget(m_statusLabel);
 
     m_list = new QListWidget(this);
-    m_list->setSpacing(4);
+    m_list->setSpacing(0);
     layout->addWidget(m_list);
 
     QSettings settings("NullA", "Browser");
@@ -87,8 +103,7 @@ void ExtensionStore::applyTheme(bool isDark)
     QString textColor = isDark ? "#ffffff" : "#000000";
     QString inputBg = isDark ? "#3d3d3d" : "#ffffff";
     QString borderColor = isDark ? "#555555" : "#cccccc";
-    QString buttonBg = isDark ? "#3d3d3d" : "#e0e0e0";
-    QString buttonHoverBg = isDark ? "#4d4d4d" : "#d0d0d0";
+    m_rowBgColor = bgColor;
 
     setStyleSheet(QString(R"(
         QDialog {
@@ -100,7 +115,7 @@ void ExtensionStore::applyTheme(bool isDark)
             background: none;
         }
         QLineEdit {
-            background-color: %3;
+            background-color: %3 !important;
             color: %2;
             border: 1px solid %4;
             border-radius: 4px;
@@ -110,24 +125,27 @@ void ExtensionStore::applyTheme(bool isDark)
             border: 1px solid #0078d4;
         }
         QPushButton {
-            background-color: %5;
+            background-color: transparent;
             color: %2;
             border: 1px solid %4;
             border-radius: 4px;
             padding: 6px;
         }
         QPushButton:hover {
-            background-color: %6;
+            background-color: transparent;
             border: 1px solid #0078d4;
+        }
+        QPushButton:pressed {
+            background-color: rgba(0, 120, 212, 30);
         }
         QPushButton:disabled {
             color: #888888;
+            border: 1px solid #444444;
         }
         QListWidget {
-            background-color: %3;
+            background-color: %1 !important;
             color: %2;
-            border: 1px solid %4;
-            border-radius: 3px;
+            border: none;
             outline: none;
         }
         QListWidget::item {
@@ -154,7 +172,16 @@ void ExtensionStore::applyTheme(bool isDark)
             background: none;
             border: none;
         }
-    )").arg(bgColor, textColor, inputBg, borderColor, buttonBg, buttonHoverBg));
+    )").arg(bgColor, textColor, inputBg, borderColor));
+
+    QColor base(inputBg);
+    QColor text(textColor);
+
+    QPalette searchPal = m_searchBox->palette();
+    searchPal.setColor(QPalette::Base, base);
+    searchPal.setColor(QPalette::Text, text);
+    m_searchBox->setPalette(searchPal);
+    m_searchBox->setAutoFillBackground(true);
 }
 
 QString ExtensionStore::extensionsRoot() const
@@ -164,7 +191,8 @@ QString ExtensionStore::extensionsRoot() const
 
 bool ExtensionStore::isInstalled(const QString &id) const
 {
-    return QDir(extensionsRoot() + "/" + id).exists();
+    QSettings settings("NullA", "Browser");
+    return settings.contains("extensions/extIdToNativeId/" + id);
 }
 
 bool ExtensionStore::isExtensionEnabled(const QString &id) const
@@ -183,39 +211,15 @@ int ExtensionStore::indexOfExtension(const QString &id) const
 
 void ExtensionStore::loadInstalledLocally()
 {
-    QDir root(extensionsRoot());
-    if (!root.exists()) return;
+    QSettings settings("NullA", "Browser");
+    settings.beginGroup("extensions/extIdToNativeId");
+    const QStringList installedIds = settings.childKeys();
+    settings.endGroup();
 
-    const QStringList dirs = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-
-    for (const QString &dirName : dirs) {
+    for (const QString &id : installedIds) {
         ExtensionInfo info;
-        info.id = dirName;
-        info.name = dirName;
-
-        QString extPath = extensionsRoot() + "/" + dirName;
-
-        QFile metaFile(extPath + "/" + kMetaFileName);
-        if (metaFile.open(QIODevice::ReadOnly)) {
-            QJsonObject obj = QJsonDocument::fromJson(metaFile.readAll()).object();
-            info.id = obj.value("id").toString(info.id);
-            info.name = obj.value("name").toString(info.name);
-            info.description = obj.value("description").toString();
-            info.version = obj.value("version").toString();
-            info.author = obj.value("author").toString();
-            metaFile.close();
-        } else {
-            QFile manifestFile(extPath + "/manifest.json");
-            if (manifestFile.open(QIODevice::ReadOnly)) {
-                QJsonObject obj = QJsonDocument::fromJson(manifestFile.readAll()).object();
-                info.name = obj.value("name").toString(info.name);
-                info.version = obj.value("version").toString();
-                info.description = obj.value("description").toString();
-                info.author = obj.value("author").toString();
-                manifestFile.close();
-            }
-        }
-
+        info.id = id;
+        info.name = id;
         m_extensions.append(info);
     }
 }
@@ -286,9 +290,8 @@ void ExtensionStore::populateList()
 
     for (const ExtensionInfo &info : m_extensions) {
         auto *item = new QListWidgetItem(m_list);
-        auto *row = new QWidget();
+        auto *row = new ExtensionRowWidget(QColor(m_rowBgColor));
         auto *rowLayout = new QHBoxLayout(row);
-        rowLayout->setContentsMargins(6, 6, 6, 6);
 
         bool installed = isInstalled(info.id);
 

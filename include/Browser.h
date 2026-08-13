@@ -122,14 +122,10 @@ private:
     QString currentSearchEngine;
 
     void loadExtensions();
-    void loadExtensionScripts(const QString &extId);
-    void unloadExtensionScripts(const QString &extId);
     void setExtensionEnabled(const QString &extId, bool enabled);
     bool isExtensionEnabled(const QString &extId) const;
-    QMap<QString, QStringList> m_extensionScriptNames;
     void setupExtensionsButton();
     QToolButton* extensionsButton = nullptr;
-    void extractZip(const QString &zipPath, const QString &destDir);
 
     void setAdBlockEnabled(bool enabled);
 };

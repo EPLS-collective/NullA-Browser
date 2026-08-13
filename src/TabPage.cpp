@@ -34,6 +34,24 @@ protected:
         }
         return nullptr;
     }
+
+    void javaScriptConsoleMessage(JavaScriptConsoleMessageLevel level,
+                                    const QString &message,
+                                    int lineNumber,
+                                    const QString &sourceID) override {
+    #ifdef DEBUG_MODE
+        const char *levelStr = "LOG";
+        switch (level) {
+            case QWebEnginePage::InfoMessageLevel:    levelStr = "INFO"; break;
+            case QWebEnginePage::WarningMessageLevel: levelStr = "WARN"; break;
+            case QWebEnginePage::ErrorMessageLevel:    levelStr = "ERROR"; break;
+        }
+        qDebug().noquote() << QString("[JS %1] %2:%3 - %4")
+            .arg(levelStr).arg(sourceID).arg(lineNumber).arg(message);
+    #else
+        Q_UNUSED(level); Q_UNUSED(message); Q_UNUSED(lineNumber); Q_UNUSED(sourceID);
+    #endif
+    }
 };
 
 TabPage::TabPage(QWebEngineProfile* profile, QWidget* parent) : QStackedWidget(parent) {

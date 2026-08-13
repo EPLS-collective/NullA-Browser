@@ -62,6 +62,7 @@ private:
     QListWidget *m_list;
     QLineEdit *m_searchBox;
     QLabel *m_statusLabel;
+    QString m_rowBgColor;
     QList<ExtensionInfo> m_extensions;
 
     static const QString kIndexUrl;
