@@ -32,6 +32,7 @@ public:
     };
 
     explicit ExtensionStore(QWidget *parent = nullptr);
+    void refreshInstalledState();
 
 signals:
 

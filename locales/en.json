@@ -139,9 +139,10 @@ Thank you for using NullA Browser!",
     "update_status_downloading": "Downloading update...",
     "download_install_btn": "Download",
 
+    "loading": "Loading...",
+
     "extension_title": "NullA Extensions",
     "extension_search_placeholder": "Search extensions...",
-    "extension_loading": "Loading...",
     "extension_count": "%1 extension(s) available",
     "extension_install": "Install",
     "extension_uninstall": "Uninstall",

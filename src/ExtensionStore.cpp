@@ -49,7 +49,7 @@ namespace {
 }
 
 const QString ExtensionStore::kIndexUrl =
-    "https://electus2000.github.io/nulla-extensions/extensions.json";
+"https://raw.githubusercontent.com/EPLS-collective/NullA-extensions/main/extensions.json";
 
 const QString ExtensionStore::kMetaFileName = ".nulla_store_meta.json";
 
@@ -67,7 +67,7 @@ ExtensionStore::ExtensionStore(QWidget *parent)
     connect(m_searchBox, &QLineEdit::textChanged, this, &ExtensionStore::filterList);
     layout->addWidget(m_searchBox);
 
-    m_statusLabel = new QLabel(Localization::qget("extension_loading"), this);
+    m_statusLabel = new QLabel(Localization::qget("loading"), this);
     layout->addWidget(m_statusLabel);
 
     m_list = new QListWidget(this);
@@ -86,15 +86,15 @@ ExtensionStore::ExtensionStore(QWidget *parent)
 
 bool ExtensionStore::isSystemDarkTheme() const
 {
-#ifdef Q_OS_WIN
+    #ifdef Q_OS_WIN
     QSettings registry("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-                        QSettings::NativeFormat);
+                       QSettings::NativeFormat);
     int value = registry.value("AppsUseLightTheme", 1).toInt();
     return (value == 0);
-#else
+    #else
     QPalette palette = qApp->palette();
     return palette.window().color().lightness() < 128;
-#endif
+    #endif
 }
 
 void ExtensionStore::applyTheme(bool isDark)
@@ -191,8 +191,7 @@ QString ExtensionStore::extensionsRoot() const
 
 bool ExtensionStore::isInstalled(const QString &id) const
 {
-    QSettings settings("NullA", "Browser");
-    return settings.contains("extensions/extIdToNativeId/" + id);
+    return QDir(extensionsRoot() + "/" + id).exists();
 }
 
 bool ExtensionStore::isExtensionEnabled(const QString &id) const
@@ -211,15 +210,39 @@ int ExtensionStore::indexOfExtension(const QString &id) const
 
 void ExtensionStore::loadInstalledLocally()
 {
-    QSettings settings("NullA", "Browser");
-    settings.beginGroup("extensions/extIdToNativeId");
-    const QStringList installedIds = settings.childKeys();
-    settings.endGroup();
+    QDir root(extensionsRoot());
+    if (!root.exists()) return;
 
-    for (const QString &id : installedIds) {
+    const QStringList dirs = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (const QString &dirName : dirs) {
         ExtensionInfo info;
-        info.id = id;
-        info.name = id;
+        info.id = dirName;
+        info.name = dirName;
+
+        QString extPath = extensionsRoot() + "/" + dirName;
+
+        QFile metaFile(extPath + "/" + kMetaFileName);
+        if (metaFile.open(QIODevice::ReadOnly)) {
+            QJsonObject obj = QJsonDocument::fromJson(metaFile.readAll()).object();
+            info.id = obj.value("id").toString(info.id);
+            info.name = obj.value("name").toString(info.name);
+            info.description = obj.value("description").toString();
+            info.version = obj.value("version").toString();
+            info.author = obj.value("author").toString();
+            metaFile.close();
+        } else {
+            QFile manifestFile(extPath + "/manifest.json");
+            if (manifestFile.open(QIODevice::ReadOnly)) {
+                QJsonObject obj = QJsonDocument::fromJson(manifestFile.readAll()).object();
+                info.name = obj.value("name").toString(info.name);
+                info.version = obj.value("version").toString();
+                info.description = obj.value("description").toString();
+                info.author = obj.value("author").toString();
+                manifestFile.close();
+            }
+        }
+
         m_extensions.append(info);
     }
 }
@@ -282,10 +305,10 @@ void ExtensionStore::populateList()
     m_list->clear();
 
     std::stable_sort(m_extensions.begin(), m_extensions.end(),
-                      [this](const ExtensionInfo &a, const ExtensionInfo &b) {
-        bool ia = isInstalled(a.id);
-        bool ib = isInstalled(b.id);
-        return ia && !ib;
+        [this](const ExtensionInfo &a, const ExtensionInfo &b) {
+            bool ia = isInstalled(a.id);
+            bool ib = isInstalled(b.id);
+            return ia && !ib;
     });
 
     for (const ExtensionInfo &info : m_extensions) {
@@ -297,9 +320,9 @@ void ExtensionStore::populateList()
 
         auto *textLayout = new QVBoxLayout();
         QString headerHtml = (info.version.isEmpty() && info.author.isEmpty())
-            ? QString("<b>%1</b>").arg(info.name.toHtmlEscaped())
-            : QString("<b>%1</b> <span style='color:gray'>v%2 &middot; %3</span>")
-                  .arg(info.name.toHtmlEscaped(), info.version.toHtmlEscaped(), info.author.toHtmlEscaped());
+        ? QString("<b>%1</b>").arg(info.name.toHtmlEscaped())
+        : QString("<b>%1</b> <span style='color:gray'>v%2 &middot; %3</span>")
+        .arg(info.name.toHtmlEscaped(), info.version.toHtmlEscaped(), info.author.toHtmlEscaped());
         auto *nameLabel = new QLabel(headerHtml);
         textLayout->addWidget(nameLabel);
 
@@ -313,14 +336,14 @@ void ExtensionStore::populateList()
         actionLayout->setAlignment(Qt::AlignRight);
 
         auto *button = new QPushButton(installed ? Localization::qget("extension_uninstall")
-                                                   : Localization::qget("extension_install"));
+        : Localization::qget("extension_install"));
         button->setFixedWidth(100);
         actionLayout->addWidget(button);
 
         if (installed) {
             bool enabled = isExtensionEnabled(info.id);
             auto *toggleButton = new QPushButton(enabled ? Localization::qget("extension_disable")
-                                                           : Localization::qget("extension_enable"));
+            : Localization::qget("extension_enable"));
             toggleButton->setFixedWidth(100);
             actionLayout->addWidget(toggleButton);
 
@@ -330,7 +353,7 @@ void ExtensionStore::populateList()
                 settings.setValue("extensions/disabled/" + info.id, !nowEnabled);
                 emit extensionToggleRequested(info.id, nowEnabled);
                 toggleButton->setText(nowEnabled ? Localization::qget("extension_disable")
-                                                  : Localization::qget("extension_enable"));
+                : Localization::qget("extension_enable"));
             });
         }
 
@@ -359,7 +382,7 @@ void ExtensionStore::filterList(const QString &text)
         QListWidgetItem *item = m_list->item(i);
         const ExtensionInfo &info = m_extensions.at(i);
         bool match = info.name.contains(text, Qt::CaseInsensitive)
-                  || info.description.contains(text, Qt::CaseInsensitive);
+        || info.description.contains(text, Qt::CaseInsensitive);
         item->setHidden(!match);
     }
 }
@@ -377,7 +400,7 @@ void ExtensionStore::startInstall(const ExtensionInfo &info, QPushButton *button
 
         if (reply->error() != QNetworkReply::NoError) {
             QMessageBox::warning(this, Localization::qget("extension_title"),
-                                  Localization::qget("extension_download_failed").arg(reply->errorString()));
+                                 Localization::qget("extension_download_failed").arg(reply->errorString()));
             button->setEnabled(true);
             button->setText(Localization::qget("extension_install"));
             return;
@@ -397,7 +420,7 @@ void ExtensionStore::startInstall(const ExtensionInfo &info, QPushButton *button
         settings.setValue("extensions/disabled/" + info.id, false);
 
         emit extensionInstallRequested(zipPath, info.id, info.name, info.description,
-                                        info.version, info.author);
+                                       info.version, info.author);
 
         populateList();
     });

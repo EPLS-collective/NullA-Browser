@@ -39,8 +39,6 @@
 #include <QJsonArray>
 #include <QMediaPlayer>
 #include <QAudioOutput>
-#include <QWebEngineExtensionManager>
-#include <QWebEngineExtensionInfo>
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
@@ -67,15 +65,6 @@ Browser::Browser(const QString &initialUrl) {
     profile->setPersistentStoragePath(dataPath);
     profile->setCachePath(dataPath + "/Cache");
     profile->setHttpCacheMaximumSize(100 * 1024 * 1024); // Cap cache at 100MB
-
-    connect(profile->extensionManager(), &QWebEngineExtensionManager::installFinished,
-            this, [](const QWebEngineExtensionInfo &info) {
-                qDebug() << "Extension install finished:" << info.name() << info.error();
-    });
-    connect(profile->extensionManager(), &QWebEngineExtensionManager::uninstallFinished,
-            this, [](const QWebEngineExtensionInfo &info) {
-                qDebug() << "Extension uninstall finished:" << info.name() << info.error();
-    });
 
     QString savedLang = settings->value("language", "en").toString();
     Localization::loadLanguage(savedLang.toStdString());
@@ -1595,8 +1584,8 @@ void Browser::onUpdateAvailable(const QString &version, const QString &url, cons
         }
 
         QMessageBox::information(this,
-        Localization::qget("update_notify_title"),
-        Localization::qget("update_notify_text").arg(version));
+            Localization::qget("update_notify_title"),
+            Localization::qget("update_notify_text").arg(version));
     }
 }
 
@@ -1730,39 +1719,108 @@ bool Browser::isExtensionEnabled(const QString &extId) const {
 }
 
 void Browser::loadExtensions() {
-    QWebEngineExtensionManager *extMgr = profile->extensionManager();
-    const auto installed = extMgr->extensions();
+    QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
+    QDir rootDir(extRoot);
 
-    settings->beginGroup("extensions/extIdToNativeId");
-    const QStringList knownExtIds = settings->childKeys();
-    settings->endGroup();
+    if (!rootDir.exists()) return;
 
-    for (const QString &extId : knownExtIds) {
-        const QString nativeId = settings->value("extensions/extIdToNativeId/" + extId).toString();
-        bool shouldBeEnabled = isExtensionEnabled(extId);
+    QStringList subDirs = rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
-        for (const QWebEngineExtensionInfo &info : installed) {
-            if (info.id() == nativeId) {
-                extMgr->setExtensionEnabled(info, shouldBeEnabled);
-                break;
+    for (const QString &dirName : subDirs) {
+        if (m_extensionScriptNames.contains(dirName)) continue;
+        if (!isExtensionEnabled(dirName)) continue;
+
+        loadExtensionScripts(dirName);
+    }
+}
+
+void Browser::loadExtensionScripts(const QString &extId) {
+    QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
+    QString extPath = extRoot + "/" + extId;
+    QFile manifestFile(extPath + "/manifest.json");
+
+    if (!manifestFile.open(QIODevice::ReadOnly)) return;
+
+    QJsonDocument doc = QJsonDocument::fromJson(manifestFile.readAll());
+    QJsonObject json = doc.object();
+    manifestFile.close();
+
+    QStringList injectedNames;
+
+    if (json.contains("content_scripts")) {
+        QJsonArray scripts = json["content_scripts"].toArray();
+        for (int i = 0; i < scripts.size(); ++i) {
+            QJsonObject scriptObj = scripts[i].toObject();
+
+            if (scriptObj.contains("js")) {
+                QJsonArray jsFiles = scriptObj["js"].toArray();
+                for (int j = 0; j < jsFiles.size(); ++j) {
+                    QString jsFileName = jsFiles[j].toString();
+                    QFile jsFile(extPath + "/" + jsFileName);
+
+                    if (jsFile.open(QIODevice::ReadOnly)) {
+                        QString jsCode = QString::fromUtf8(jsFile.readAll());
+                        QString scriptName = extId + "_" + jsFileName;
+
+                        QWebEngineScript script;
+                        script.setSourceCode(jsCode);
+                        script.setName(scriptName);
+                        script.setInjectionPoint(QWebEngineScript::DocumentReady);
+                        script.setWorldId(QWebEngineScript::MainWorld);
+                        script.setRunsOnSubFrames(true);
+
+                        profile->scripts()->insert(script);
+                        injectedNames << scriptName;
+                        jsFile.close();
+                    }
+                }
             }
         }
     }
+
+    m_extensionScriptNames[extId] = injectedNames;
+}
+
+void Browser::unloadExtensionScripts(const QString &extId) {
+    if (!m_extensionScriptNames.contains(extId)) return;
+
+    QWebEngineScriptCollection *collection = profile->scripts();
+    const QStringList names = m_extensionScriptNames.value(extId);
+
+    for (const QString &name : names) {
+        const QList<QWebEngineScript> found = collection->find(name);
+        for (const QWebEngineScript &s : found) {
+            collection->remove(s);
+        }
+    }
+
+    m_extensionScriptNames.remove(extId);
 }
 
 void Browser::setExtensionEnabled(const QString &extId, bool enabled) {
     settings->setValue("extensions/disabled/" + extId, !enabled);
 
-    const QString nativeId = settings->value("extensions/extIdToNativeId/" + extId).toString();
-    if (nativeId.isEmpty()) return;
-
-    QWebEngineExtensionManager *extMgr = profile->extensionManager();
-    for (const QWebEngineExtensionInfo &info : extMgr->extensions()) {
-        if (info.id() == nativeId) {
-            extMgr->setExtensionEnabled(info, enabled);
-            break;
+    if (enabled) {
+        if (!m_extensionScriptNames.contains(extId)) {
+            loadExtensionScripts(extId);
         }
+    } else {
+        unloadExtensionScripts(extId);
     }
+}
+
+void Browser::extractZip(const QString &zipPath, const QString &destDir) {
+    QProcess process;
+    #ifdef Q_OS_WIN
+    QStringList arguments;
+    arguments << "-Command" << QString("Expand-Archive -Path '%1' -DestinationPath '%2' -Force").arg(zipPath, destDir);
+    process.start("powershell", arguments);
+    #else
+    QStringList arguments;
+    arguments << "-o" << zipPath << "-d" << destDir;
+    process.start("unzip", arguments);
+    #endif
+    process.waitForFinished(-1);
 }
 
 void Browser::setupExtensionsButton() {
@@ -1770,52 +1828,54 @@ void Browser::setupExtensionsButton() {
     store->setAttribute(Qt::WA_DeleteOnClose);
 
     connect(store, &ExtensionStore::extensionInstallRequested, this,
-        [this](const QString &zipPath, const QString &extId,
-                const QString &name, const QString &description,
-                const QString &version, const QString &author) {
-            Q_UNUSED(name); Q_UNUSED(description);
-            Q_UNUSED(version); Q_UNUSED(author);
+            [this](const QString &zipPath, const QString &extId,
+                   const QString &name, const QString &description,
+                   const QString &version, const QString &author) {
+                QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
+                QString destDir = extRoot + "/" + extId;
+                QDir().mkpath(destDir);
 
-            QWebEngineExtensionManager *extMgr = profile->extensionManager();
+                extractZip(zipPath, destDir);
 
-            auto conn = std::make_shared<QMetaObject::Connection>();
-            *conn = connect(extMgr, &QWebEngineExtensionManager::installFinished, this,
-                [this, zipPath, extId, conn](const QWebEngineExtensionInfo &info) {
-                    disconnect(*conn);
-                    QFile::remove(zipPath);
+                QJsonObject meta;
+                meta["id"] = extId;
+                meta["name"] = name;
+                meta["description"] = description;
+                meta["version"] = version;
+                meta["author"] = author;
 
-                    if (info.isLoaded()) {
-                        settings->setValue("extensions/extIdToNativeId/" + extId, info.id());
-                        QMessageBox::information(this, "NullA Browser",
-                            Localization::qget("extension_install_success"));
-                    } else {
-                        QMessageBox::warning(this, "NullA Browser", info.error());
-                    }
-            });
+                QFile metaFile(destDir + "/.nulla_store_meta.json");
+                if (metaFile.open(QIODevice::WriteOnly)) {
+                    metaFile.write(QJsonDocument(meta).toJson());
+                    metaFile.close();
+                }
 
-            extMgr->installExtension(zipPath);
-    });
+                loadExtensionScripts(extId);
+                QFile::remove(zipPath);
+
+                auto *box = new QMessageBox(QMessageBox::Information, "NullA Browser",
+                                            Localization::qget("extension_install_success"), QMessageBox::Ok, this);
+                box->setAttribute(Qt::WA_DeleteOnClose);
+                box->show();
+                   });
 
     connect(store, &ExtensionStore::extensionUninstallRequested, this,
-        [this](const QString &extId) {
-            const QString nativeId = settings->value("extensions/extIdToNativeId/" + extId).toString();
-            QWebEngineExtensionManager *extMgr = profile->extensionManager();
+            [this](const QString &extId) {
+                unloadExtensionScripts(extId);
 
-            for (const QWebEngineExtensionInfo &info : extMgr->extensions()) {
-                if (info.id() == nativeId) {
-                    extMgr->uninstallExtension(info);
-                    break;
-                }
-            }
+                QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
+                QDir(extRoot + "/" + extId).removeRecursively();
 
-            settings->remove("extensions/extIdToNativeId/" + extId);
-            QMessageBox::information(this, "NullA Browser", Localization::qget("extension_removed"));
-    });
+                auto *box = new QMessageBox(QMessageBox::Information, "NullA Browser",
+                                            Localization::qget("extension_removed"), QMessageBox::Ok, this);
+                box->setAttribute(Qt::WA_DeleteOnClose);
+                box->show();
+            });
 
     connect(store, &ExtensionStore::extensionToggleRequested, this,
             [this](const QString &extId, bool enabled) {
                 setExtensionEnabled(extId, enabled);
-    });
+            });
 
     store->exec();
 }

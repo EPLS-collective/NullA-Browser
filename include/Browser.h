@@ -31,6 +31,7 @@
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include <QToolBar>
+#include <QHash>
 
 class Interceptor;
 
@@ -128,6 +129,12 @@ private:
     QToolButton* extensionsButton = nullptr;
 
     void setAdBlockEnabled(bool enabled);
+
+    void loadExtensionScripts(const QString &extId);
+    void unloadExtensionScripts(const QString &extId);
+    void extractZip(const QString &zipPath, const QString &destDir);
+
+    QHash<QString, QStringList> m_extensionScriptNames;
 };
 
 #endif // BROWSER_H
