@@ -21,6 +21,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
     WebEngineWidgets
+    WebChannel
     Multimedia
     Svg
 )
@@ -49,6 +50,7 @@ target_link_libraries(${PROJECT_NAME}
     Qt6::Core
     Qt6::Widgets
     Qt6::WebEngineWidgets
+    Qt6::WebChannel
     Qt6::Multimedia
     Qt6::Svg
 )

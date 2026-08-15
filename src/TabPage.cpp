@@ -5,11 +5,13 @@
  * See LICENSE file in the project root for full terms.
  */
 
-#include <QApplication>
-#include <QDebug>
 #include "../include/TabPage.h"
 #include "../include/Browser.h"
 #include "../include/Localization.h"
+#include "../include/ExtensionBridge.h"
+#include <QApplication>
+#include <QWebChannel>
+#include <QDebug>
 
 class WebPage : public QWebEnginePage {
 public:
@@ -57,6 +59,7 @@ protected:
 TabPage::TabPage(QWebEngineProfile* profile, QWidget* parent) : QStackedWidget(parent) {
     view = new QWebEngineView(this);
     view->setPage(new WebPage(profile, view));
+    view->page()->setWebChannel(ExtensionBridge::channel());
 
     startPage = new StartPage();
 

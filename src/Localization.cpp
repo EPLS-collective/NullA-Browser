@@ -13,17 +13,13 @@
 #include <QString>
 #include <QCoreApplication>
 
-bool Localization::loadLanguage(const std::string& langCode) {
-    auto& store = instance();
-    std::lock_guard<std::mutex> lock(store.mutex);
-
-    store.translations.clear();
-
+static std::unordered_map<std::string, std::string> loadJsonTranslations(const std::string& langCode) {
+    std::unordered_map<std::string, std::string> map;
     QString path = ":/locales/" + QString::fromStdString(langCode) + ".json";
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
-        return false;
+        return map;
     }
 
     QByteArray data = file.readAll();
@@ -31,12 +27,28 @@ bool Localization::loadLanguage(const std::string& langCode) {
 
     QJsonDocument doc = QJsonDocument::fromJson(data);
     if (!doc.isObject()) {
-        return false;
+        return map;
     }
 
     QJsonObject obj = doc.object();
     for (auto it = obj.begin(); it != obj.end(); ++it) {
-        store.translations[it.key().toStdString()] = it.value().toString().toStdString();
+        map[it.key().toStdString()] = it.value().toString().toStdString();
+    }
+
+    return map;
+}
+
+bool Localization::loadLanguage(const std::string& langCode) {
+    auto& store = instance();
+    std::lock_guard<std::mutex> lock(store.mutex);
+
+    store.translations.clear();
+    store.defaultTranslations.clear();
+
+    store.defaultTranslations = loadJsonTranslations("en");
+
+    if (langCode != "en") {
+        store.translations = loadJsonTranslations(langCode);
     }
 
     store.currentLang = langCode;
@@ -50,6 +62,11 @@ std::string Localization::get(const std::string& key) {
     auto it = store.translations.find(key);
     if (it != store.translations.end()) {
         return it->second;
+    }
+
+    auto defaultIt = store.defaultTranslations.find(key);
+    if (defaultIt != store.defaultTranslations.end()) {
+        return defaultIt->second;
     }
 
     return key;

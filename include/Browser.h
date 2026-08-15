@@ -32,6 +32,8 @@
 #include <QAudioOutput>
 #include <QToolBar>
 #include <QHash>
+#include <QWebEnginePage>
+#include <QJsonObject>
 
 class Interceptor;
 
@@ -131,10 +133,18 @@ private:
     void setAdBlockEnabled(bool enabled);
 
     void loadExtensionScripts(const QString &extId);
+    QString chromePolyfillFor(const QString &extId, bool isBackground = false) const;
     void unloadExtensionScripts(const QString &extId);
     void extractZip(const QString &zipPath, const QString &destDir);
 
+    void loadExtensionBackground(const QString &extId, const QString &extPath, const QJsonObject &manifestJson);
+    void unloadExtensionBackground(const QString &extId);
+
+    QString queryTabsMatching(const QString &urlPattern) const;
+    bool executeExtensionScriptInTab(int tabId, const QString &extId, const QString &fileName);
+
     QHash<QString, QStringList> m_extensionScriptNames;
+    QHash<QString, QWebEnginePage*> m_backgroundPages;
 };
 
 #endif // BROWSER_H

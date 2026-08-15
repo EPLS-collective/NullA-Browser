@@ -11,6 +11,7 @@
 #include "../include/DownloadManager.h"
 #include "../include/Render.h"
 #include "../include/ExtensionStore.h"
+#include "../include/ExtensionBridge.h"
 #include "../include/UpdateChecker.h"
 #include <QNetworkAccessManager>
 #include <QWebEngineFullScreenRequest>
@@ -42,11 +43,21 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
+#include <QRegularExpression>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 #endif
+
+namespace {
+    QRegularExpression matchPatternToRegex(const QString &pattern) {
+        QString escaped = QRegularExpression::escape(pattern);
+        escaped.replace(QStringLiteral("\\*"), QStringLiteral(".*"));
+        return QRegularExpression(QRegularExpression::anchoredPattern(escaped),
+                                  QRegularExpression::CaseInsensitiveOption);
+    }
+}
 
 Browser::Browser(const QString &initialUrl) {
 
@@ -253,6 +264,30 @@ Browser::Browser(const QString &initialUrl) {
     createToolbar();
     loadCookiesFromJson();
     loadBookmarks();
+
+    {
+        QFile qwcFile(":/qtwebchannel/qwebchannel.js");
+        if (qwcFile.open(QIODevice::ReadOnly)) {
+            QWebEngineScript qwcScript;
+            qwcScript.setSourceCode(QString::fromUtf8(qwcFile.readAll()));
+            qwcScript.setName("nulla_qwebchannel_lib");
+            qwcScript.setInjectionPoint(QWebEngineScript::DocumentCreation);
+            qwcScript.setWorldId(QWebEngineScript::MainWorld);
+            qwcScript.setRunsOnSubFrames(true);
+            profile->scripts()->insert(qwcScript);
+            qwcFile.close();
+        } else {
+            qDebug() << "Could not load qwebchannel.js resource; chrome.* polyfill for extensions will not work.";
+        }
+    }
+
+    ExtensionBridge::instance()->setTabQueryHandler([this](const QString &pattern) {
+        return this->queryTabsMatching(pattern);
+    });
+    ExtensionBridge::instance()->setScriptExecHandler([this](int tabId, const QString &extId, const QString &fileName) {
+        return this->executeExtensionScriptInTab(tabId, extId, fileName);
+    });
+
     loadExtensions();
 
     m_updateChecker = new UpdateChecker(this);
@@ -1734,6 +1769,240 @@ void Browser::loadExtensions() {
     }
 }
 
+QString Browser::chromePolyfillFor(const QString &extId, bool isBackground) const {
+    QString extIdEscaped = extId;
+    extIdEscaped.replace("\\", "\\\\").replace("'", "\\'");
+
+    return QStringLiteral(R"JS(
+(function() {
+    var extId = '%1';
+    var isBackground = %2;
+    var contextId = 'ctx_' + Math.random().toString(36).slice(2) + '_' + Date.now();
+
+    var listeners = [];
+    var installListeners = [];
+    var startupListeners = [];
+    var bridgeReady = null;
+    var pending = [];
+    var pendingCallbacks = {};
+    var reqCounter = 0;
+
+    function withBridge(fn) {
+        if (bridgeReady) { fn(bridgeReady); return; }
+        pending.push(fn);
+        if (window.__nullaChannelInitStarted) return;
+        window.__nullaChannelInitStarted = true;
+        function tryInit() {
+            if (window.qt && window.qt.webChannelTransport && window.QWebChannel) {
+                new QWebChannel(qt.webChannelTransport, function(channel) {
+                    bridgeReady = channel.objects.extensionBridge;
+
+                    bridgeReady.messageReceived.connect(function(msgExtId, requestId, messageJson) {
+                        if (msgExtId !== extId) return;
+
+                        var wrapper;
+                        try { wrapper = JSON.parse(messageJson); } catch (e) { wrapper = null; }
+                        if (!wrapper || wrapper.senderContextId === contextId) return;
+
+                        var message = wrapper.payload;
+                        var responded = false;
+                        function sendResponse(response) {
+                            if (responded) return;
+                            responded = true;
+                            try {
+                                bridgeReady.sendResponse(extId, requestId, JSON.stringify(response === undefined ? null : response));
+                            } catch (e) {}
+                        }
+
+                        listeners.forEach(function(fn) {
+                            try { fn(message, { id: extId }, sendResponse); } catch (e) {}
+                        });
+                    });
+
+                    bridgeReady.responseReceived.connect(function(msgExtId, requestId, responseJson) {
+                        if (msgExtId !== extId) return;
+                        var cb = pendingCallbacks[requestId];
+                        if (!cb) return;
+                        delete pendingCallbacks[requestId];
+                        var response;
+                        try { response = JSON.parse(responseJson); } catch (e) { response = responseJson; }
+                        try { cb(response); } catch (e) {}
+                    });
+
+                    pending.forEach(function(fn) { fn(bridgeReady); });
+                    pending = [];
+
+                    if (isBackground) {
+                        setTimeout(function() {
+                            installListeners.forEach(function(fn) { try { fn({ reason: 'install' }); } catch (e) {} });
+                            startupListeners.forEach(function(fn) { try { fn(); } catch (e) {} });
+                        }, 0);
+                    }
+                });
+            } else {
+                setTimeout(tryInit, 20);
+            }
+        }
+        tryInit();
+    }
+
+    var chromeObj = {
+        runtime: {
+            id: extId,
+            getURL: function(path) {
+                return 'nulla-extension://' + extId + '/' + String(path).replace(/^\//, '');
+            },
+            onMessage: {
+                addListener: function(fn) { listeners.push(fn); }
+            },
+            onInstalled: {
+                addListener: function(fn) { installListeners.push(fn); }
+            },
+            onStartup: {
+                addListener: function(fn) { startupListeners.push(fn); }
+            },
+            sendMessage: function(message, callback) {
+                withBridge(function(bridge) {
+                    var requestId = 'r' + (++reqCounter) + '_' + Date.now();
+                    if (typeof callback === 'function') {
+                        pendingCallbacks[requestId] = callback;
+                    }
+                    bridge.sendMessage(extId, requestId, JSON.stringify({ senderContextId: contextId, payload: message }));
+                });
+            }
+        },
+        storage: {
+            local: {
+                get: function(keys, callback) {
+                    withBridge(function(bridge) {
+                        bridge.storageGetAllJson(extId, function(rawJson) {
+                            var raw = {};
+                            try { raw = JSON.parse(rawJson || '{}'); } catch (e) {}
+                            var all = {};
+                            Object.keys(raw).forEach(function(k) {
+                                try { all[k] = JSON.parse(raw[k]); } catch (e) { all[k] = raw[k]; }
+                            });
+                            var result = {};
+                            if (!keys) { result = all; }
+                            else if (typeof keys === 'string') { result[keys] = all[keys]; }
+                            else if (Array.isArray(keys)) { keys.forEach(function(k) { result[k] = all[k]; }); }
+                            else if (typeof keys === 'object') {
+                                Object.keys(keys).forEach(function(k) { result[k] = (k in all) ? all[k] : keys[k]; });
+                            }
+                            if (callback) callback(result);
+                        });
+                    });
+                },
+                set: function(items, callback) {
+                    withBridge(function(bridge) {
+                        Object.keys(items).forEach(function(k) {
+                            bridge.storageSet(extId, k, JSON.stringify(items[k]));
+                        });
+                        if (callback) callback();
+                    });
+                },
+                remove: function(keys, callback) {
+                    withBridge(function(bridge) {
+                        var list = Array.isArray(keys) ? keys : [keys];
+                        list.forEach(function(k) { bridge.storageRemove(extId, k); });
+                        if (callback) callback();
+                    });
+                }
+            },
+            session: {
+                get: function(keys, callback) {
+                    withBridge(function(bridge) {
+                        bridge.sessionStorageGetAllJson(extId, function(rawJson) {
+                            var raw = {};
+                            try { raw = JSON.parse(rawJson || '{}'); } catch (e) {}
+                            var all = {};
+                            Object.keys(raw).forEach(function(k) {
+                                try { all[k] = JSON.parse(raw[k]); } catch (e) { all[k] = raw[k]; }
+                            });
+                            var result = {};
+                            if (!keys) { result = all; }
+                            else if (typeof keys === 'string') { result[keys] = all[keys]; }
+                            else if (Array.isArray(keys)) { keys.forEach(function(k) { result[k] = all[k]; }); }
+                            else if (typeof keys === 'object') {
+                                Object.keys(keys).forEach(function(k) { result[k] = (k in all) ? all[k] : keys[k]; });
+                            }
+                            if (callback) callback(result);
+                        });
+                    });
+                },
+                set: function(items, callback) {
+                    withBridge(function(bridge) {
+                        Object.keys(items).forEach(function(k) {
+                            bridge.sessionStorageSet(extId, k, JSON.stringify(items[k]));
+                        });
+                        if (callback) callback();
+                    });
+                },
+                remove: function(keys, callback) {
+                    withBridge(function(bridge) {
+                        var list = Array.isArray(keys) ? keys : [keys];
+                        list.forEach(function(k) { bridge.sessionStorageRemove(extId, k); });
+                        if (callback) callback();
+                    });
+                }
+            }
+        }
+    };
+
+    if (isBackground) {
+        chromeObj.tabs = {
+            query: function(queryInfo, callback) {
+                withBridge(function(bridge) {
+                    var pattern = (queryInfo && queryInfo.url) ? queryInfo.url : '<all_urls>';
+                bridge.queryTabs(pattern, function(tabsJson) {
+                    var tabs = [];
+                    try { tabs = JSON.parse(tabsJson || '[]'); } catch (e) {}
+                    if (callback) callback(tabs);
+                });
+                });
+            }
+        };
+
+        chromeObj.scripting = {
+            executeScript: function(details, callback) {
+                withBridge(function(bridge) {
+                    var tabId = (details && details.target) ? details.target.tabId : undefined;
+                    var fileName = (details && details.files && details.files.length) ? details.files[0] : null;
+                    if (tabId === undefined || !fileName) { if (callback) callback(); return; }
+                    bridge.executeScriptInTab(tabId, extId, fileName, function() {
+                        if (callback) callback();
+                    });
+                });
+                return Promise.resolve();
+            }
+        };
+
+        chromeObj.declarativeNetRequest = {
+            updateDynamicRules: function() {
+                console.warn('[NullA] chrome.declarativeNetRequest is not implemented natively yet; rule is ignored.');
+                return Promise.resolve();
+            }
+        };
+        chromeObj.webRequest = {
+            onHeadersReceived: {
+                addListener: function() {
+                    console.warn('[NullA] chrome.webRequest.onHeadersReceived is not implemented natively yet; listener will never fire.');
+                }
+            }
+        };
+        chromeObj.cookies = {
+            set: function() {
+                return Promise.resolve();
+            }
+        };
+    }
+
+    window.chrome = chromeObj;
+    window.browser = chromeObj;
+})();
+    )JS").arg(extIdEscaped, isBackground ? QStringLiteral("true") : QStringLiteral("false"));
+}
+
 void Browser::loadExtensionScripts(const QString &extId) {
     QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
     QString extPath = extRoot + "/" + extId;
@@ -1762,8 +2031,10 @@ void Browser::loadExtensionScripts(const QString &extId) {
                         QString jsCode = QString::fromUtf8(jsFile.readAll());
                         QString scriptName = extId + "_" + jsFileName;
 
+                        QString combined = chromePolyfillFor(extId) + "\n;\n" + jsCode;
+
                         QWebEngineScript script;
-                        script.setSourceCode(jsCode);
+                        script.setSourceCode(combined);
                         script.setName(scriptName);
                         script.setInjectionPoint(QWebEngineScript::DocumentReady);
                         script.setWorldId(QWebEngineScript::MainWorld);
@@ -1779,23 +2050,110 @@ void Browser::loadExtensionScripts(const QString &extId) {
     }
 
     m_extensionScriptNames[extId] = injectedNames;
+
+    if (json.contains("background")) {
+        loadExtensionBackground(extId, extPath, json);
+    }
+}
+
+void Browser::loadExtensionBackground(const QString &extId, const QString &extPath, const QJsonObject &manifestJson) {
+    QJsonObject bg = manifestJson.value("background").toObject();
+    QString swFile = bg.value("service_worker").toString();
+    if (swFile.isEmpty()) return;
+
+    QFile jsFile(extPath + "/" + swFile);
+    if (!jsFile.open(QIODevice::ReadOnly)) {
+        qDebug() << "[Extensions] Background script not found for" << extId << ":" << swFile;
+        return;
+    }
+    QString jsCode = QString::fromUtf8(jsFile.readAll());
+    jsFile.close();
+
+    unloadExtensionBackground(extId);
+
+    QWebEnginePage *bgPage = new QWebEnginePage(profile, this);
+    bgPage->setWebChannel(ExtensionBridge::channel());
+
+    QString combined = chromePolyfillFor(extId, /*isBackground=*/true) + "\n;\n" + jsCode;
+
+    connect(bgPage, &QWebEnginePage::loadFinished, this, [bgPage, combined, extId](bool ok) {
+        if (!ok) {
+            qDebug() << "[Extensions] Background page failed to load for" << extId;
+            return;
+        }
+        bgPage->runJavaScript(combined);
+    });
+
+    bgPage->setHtml(QStringLiteral("<!DOCTYPE html><html><head><title>background:%1</title></head><body></body></html>").arg(extId));
+
+    m_backgroundPages[extId] = bgPage;
+    qDebug() << "[Extensions] Background page started for" << extId << "(" << swFile << ")";
+}
+
+void Browser::unloadExtensionBackground(const QString &extId) {
+    if (!m_backgroundPages.contains(extId)) return;
+    QWebEnginePage *page = m_backgroundPages.take(extId);
+    page->deleteLater();
 }
 
 void Browser::unloadExtensionScripts(const QString &extId) {
-    if (!m_extensionScriptNames.contains(extId)) return;
+    if (m_extensionScriptNames.contains(extId)) {
+        QWebEngineScriptCollection *collection = profile->scripts();
+        const QStringList names = m_extensionScriptNames.value(extId);
 
-    QWebEngineScriptCollection *collection = profile->scripts();
-    const QStringList names = m_extensionScriptNames.value(extId);
+        for (const QString &name : names) {
+            const QList<QWebEngineScript> found = collection->find(name);
+            for (const QWebEngineScript &s : found) {
+                collection->remove(s);
+            }
+        }
 
-    for (const QString &name : names) {
-        const QList<QWebEngineScript> found = collection->find(name);
-        for (const QWebEngineScript &s : found) {
-            collection->remove(s);
+        m_extensionScriptNames.remove(extId);
+    }
+
+    unloadExtensionBackground(extId);
+}
+
+QString Browser::queryTabsMatching(const QString &urlPattern) const {
+    QJsonArray result;
+    QRegularExpression re = matchPatternToRegex(urlPattern);
+
+    for (int i = 0; i < tabWidget->count(); ++i) {
+        TabPage *page = qobject_cast<TabPage*>(tabWidget->widget(i));
+        if (!page) continue;
+
+        QUrl url = page->currentUrl();
+        if (url.isEmpty()) continue;
+
+        if (urlPattern == QStringLiteral("<all_urls>") || re.match(url.toString()).hasMatch()) {
+            QJsonObject tab;
+            tab["id"] = i;
+            tab["url"] = url.toString();
+            result.append(tab);
         }
     }
 
-    m_extensionScriptNames.remove(extId);
+    return QString::fromUtf8(QJsonDocument(result).toJson(QJsonDocument::Compact));
 }
+
+bool Browser::executeExtensionScriptInTab(int tabId, const QString &extId, const QString &fileName) {
+    if (tabId < 0 || tabId >= tabWidget->count()) return false;
+
+    TabPage *page = qobject_cast<TabPage*>(tabWidget->widget(tabId));
+    if (!page || !page->webView() || !page->webView()->page()) return false;
+
+    QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
+    QFile jsFile(extRoot + "/" + extId + "/" + fileName);
+    if (!jsFile.open(QIODevice::ReadOnly)) return false;
+
+    QString jsCode = QString::fromUtf8(jsFile.readAll());
+    jsFile.close();
+
+    QString combined = chromePolyfillFor(extId, /*isBackground=*/false) + "\n;\n" + jsCode;
+    page->webView()->page()->runJavaScript(combined);
+    return true;
+}
+
 
 void Browser::setExtensionEnabled(const QString &extId, bool enabled) {
     settings->setValue("extensions/disabled/" + extId, !enabled);

@@ -25,6 +25,7 @@ public:
 private:
     struct Storage {
         std::unordered_map<std::string, std::string> translations;
+        std::unordered_map<std::string, std::string> defaultTranslations;
         std::string currentLang = "en";
         std::mutex mutex;
     };
