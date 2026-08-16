@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=NullA Browser
+GenericName=Web Browser
+Comment=Fast for freedom
+Exec=HOME_PLACEHOLDER/.local/share/NullA/NullA %U
+Icon=HOME_PLACEHOLDER/.local/share/NullA/nulla_icon.png
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=NullA
