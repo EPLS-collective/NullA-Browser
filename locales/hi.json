@@ -139,5 +139,24 @@ NullA ब्राउज़र का उपयोग करने के लि
     "update_notify_title": "अपडेट उपलब्ध है",
     "update_notify_text": "NullA ब्राउज़र v%1 अब उपलब्ध है। विवरण देखने और डाउनलोड करने के लिए सेटिंग्स खोलें।",
     "update_status_downloading": "अपडेट डाउनलोड हो रहा है...",
-    "download_install_btn": "डाउनलोड करें"
+    "download_install_btn": "डाउनलोड करें",
+
+    "loading": "लोड हो रहा है...",
+
+    "enable": "सक्षम करें",
+    "disable": "अक्षम करें",
+
+    "install": "इंस्टॉल करें",
+    "uninstall": "अनइंस्टॉल करें",
+
+    "installing": "इंस्टॉल हो रहा है...",
+
+    "extension_title": "NullA एक्सटेंशन",
+    "extension_search_placeholder": "एक्सटेंशन खोजें...",
+    "extension_count": "%1 एक्सटेंशन उपलब्ध",
+    "extension_install_success": "एक्सटेंशन सफलतापूर्वक इंस्टॉल हो गया।",
+    "extension_removed": "एक्सटेंशन हटा दिया गया।",
+    "extension_download_failed": "डाउनलोड विफल: %1",
+    "extension_fetch_failed": "एक्सटेंशन सूची लोड करने में विफल: %1",
+    "extension_invalid_index": "अमान्य एक्सटेंशन इंडेक्स प्रारूप।"
 }

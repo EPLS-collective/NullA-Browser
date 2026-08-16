@@ -138,5 +138,24 @@ Dziękujemy za korzystanie z przeglądarki NullA!",
     "update_notify_title": "Dostępna aktualizacja",
     "update_notify_text": "NullA Browser v%1 jest już dostępny. Otwórz Ustawienia, aby zobaczyć szczegóły i pobrać aktualizację.",
     "update_status_downloading": "Pobieranie aktualizacji...",
-    "download_install_btn": "Pobierz"
+    "download_install_btn": "Pobierz",
+
+    "loading": "Ładowanie...",
+
+    "enable": "Włącz",
+    "disable": "Wyłącz",
+
+    "install": "Zainstaluj",
+    "uninstall": "Odinstaluj",
+
+    "installing": "Instalowanie...",
+
+    "extension_title": "Rozszerzenia NullA",
+    "extension_search_placeholder": "Szukaj rozszerzeń...",
+    "extension_count": "Dostępne rozszerzenia: %1",
+    "extension_install_success": "Rozszerzenie zostało pomyślnie zainstalowane.",
+    "extension_removed": "Rozszerzenie zostało usunięte.",
+    "extension_download_failed": "Pobieranie nie powiodło się: %1",
+    "extension_fetch_failed": "Nie udało się pobrać listy rozszerzeń: %1",
+    "extension_invalid_index": "Nieprawidłowy format indeksu rozszerzenia."
 }

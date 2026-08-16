@@ -137,5 +137,24 @@ NullA Browser kullandığınız için teşekkür ederiz!",
     "update_notify_title": "Güncelleme Mevcut",
     "update_notify_text": "NullA Browser v%1 artık kullanılabilir. Detayları görmek ve indirmek için Ayarlar'ı açın.",
     "update_status_downloading": "Güncelleme indiriliyor...",
-    "download_install_btn": "İndir"
+    "download_install_btn": "İndir",
+
+    "loading": "Yükleniyor...",
+
+    "enable": "Etkinleştir",
+    "disable": "Durdur",
+
+    "install": "Yükle",
+    "uninstall": "Kaldır",
+
+    "installing": "Yükleniyor...",
+
+    "extension_title": "NullA Eklentileri",
+    "extension_search_placeholder": "Eklenti ara...",
+    "extension_count": "%1 eklenti mevcut",
+    "extension_install_success": "Eklenti başarıyla yüklendi.",
+    "extension_removed": "Eklenti kaldırıldı.",
+    "extension_download_failed": "İndirme başarısız oldu: %1",
+    "extension_fetch_failed": "Eklenti başlatılamadı: %1",
+    "extension_invalid_index": "Geçersiz eklenti dizin (index) formatı."
 }

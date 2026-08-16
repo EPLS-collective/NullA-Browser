@@ -137,5 +137,24 @@ Salamat sa paggamit ng NullA Browser!",
     "update_notify_title": "May Available na Update",
     "update_notify_text": "Available na ngayon ang NullA Browser v%1. Buksan ang Settings para tingnan ang mga detalye at i-download ito.",
     "update_status_downloading": "Dina-download ang update...",
-    "download_install_btn": "I-download"
+    "download_install_btn": "I-download",
+
+    "loading": "Pino-proseso...",
+
+    "enable": "I-enable",
+    "disable": "I-disable",
+
+    "install": "I-install",
+    "uninstall": "I-uninstall",
+
+    "installing": "Ini-install...",
+
+    "extension_title": "Mga Extension ng NullA",
+    "extension_search_placeholder": "Maghanap ng mga extension...",
+    "extension_count": "%1 (na) extension ang available",
+    "extension_install_success": "Matagumpay na na-install ang extension.",
+    "extension_removed": "Naalis na ang extension.",
+    "extension_download_failed": "Bigo ang pag-download: %1",
+    "extension_fetch_failed": "Bigo sa pag-load ng listahan ng extension: %1",
+    "extension_invalid_index": "Hindi wastong format ng index ng extension."
 }

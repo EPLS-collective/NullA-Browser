@@ -137,5 +137,24 @@ Danke, dass du NullA Browser benutzt!",
     "update_notify_title": "Update verfügbar",
     "update_notify_text": "NullA Browser v%1 ist jetzt verfügbar. Öffne die Einstellungen, um Details zu sehen und es herunterzuladen.",
     "update_status_downloading": "Update wird heruntergeladen...",
-    "download_install_btn": "Herunterladen"
+    "download_install_btn": "Herunterladen",
+
+    "loading": "Laden...",
+
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren",
+
+    "install": "Installieren",
+    "uninstall": "Deinstallieren",
+
+    "installing": "Wird installiert...",
+
+    "extension_title": "NullA-Erweiterungen",
+    "extension_search_placeholder": "Erweiterungen suchen...",
+    "extension_count": "%1 Erweiterung(en) verfügbar",
+    "extension_install_success": "Die Erweiterung wurde erfolgreich installiert.",
+    "extension_removed": "Erweiterung entfernt.",
+    "extension_download_failed": "Download fehlgeschlagen: %1",
+    "extension_fetch_failed": "Laden der Erweiterungsliste fehlgeschlagen: %1",
+    "extension_invalid_index": "Ungültiges Erweiterungsindex-Format."
 }

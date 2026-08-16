@@ -137,5 +137,24 @@ Lazarus
     "update_notify_title": "Actualización disponible",
     "update_notify_text": "NullA Browser v%1 ya está disponible. Abre Configuración para ver los detalles y descargarla.",
     "update_status_downloading": "Descargando actualización...",
-    "download_install_btn": "Descargar"
+    "download_install_btn": "Descargar",
+
+    "loading": "Cargando...",
+
+    "enable": "Habilitar",
+    "disable": "Deshabilitar",
+
+    "install": "Instalar",
+    "uninstall": "Desinstalar",
+
+    "installing": "Instalando...",
+
+    "extension_title": "Extensiones de NullA",
+    "extension_search_placeholder": "Buscar extensiones...",
+    "extension_count": "%1 extensión(es) disponible(s)",
+    "extension_install_success": "La extensión se instaló con éxito.",
+    "extension_removed": "Extensión eliminada.",
+    "extension_download_failed": "Error al descargar: %1",
+    "extension_fetch_failed": "Error al cargar la lista de extensiones: %1",
+    "extension_invalid_index": "Formato de índice de extensión no válido."
 }

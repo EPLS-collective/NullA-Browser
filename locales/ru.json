@@ -137,5 +137,24 @@ Lazarus
     "update_notify_title": "Доступно обновление",
     "update_notify_text": "NullA Browser v%1 уже доступен. Откройте настройки, чтобы посмотреть подробности и скачать его.",
     "update_status_downloading": "Загрузка обновления...",
-    "download_install_btn": "Скачать"
+    "download_install_btn": "Скачать",
+
+    "loading": "Загрузка...",
+
+    "enable": "Включить",
+    "disable": "Отключить",
+
+    "install": "Установить",
+    "uninstall": "Удалить",
+
+    "installing": "Установка...",
+
+    "extension_title": "Расширения NullA",
+    "extension_search_placeholder": "Поиск расширений...",
+    "extension_count": "Доступно расширений: %1",
+    "extension_install_success": "Расширение успешно установлено.",
+    "extension_removed": "Расширение удалено.",
+    "extension_download_failed": "Ошибка загрузки: %1",
+    "extension_fetch_failed": "Не удалось загрузить список расширений: %1",
+    "extension_invalid_index": "Неверный формат индекса расширения."
 }

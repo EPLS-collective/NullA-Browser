@@ -141,14 +141,17 @@ Thank you for using NullA Browser!",
 
     "loading": "Loading...",
 
+    "enable": "Enable",
+    "disable": "Disable",
+
+    "install": "Install",
+    "uninstall": "Uninstall",
+
+    "installing": "Installing...",
+
     "extension_title": "NullA Extensions",
     "extension_search_placeholder": "Search extensions...",
     "extension_count": "%1 extension(s) available",
-    "extension_install": "Install",
-    "extension_uninstall": "Uninstall",
-    "extension_installing": "Installing...",
-    "extension_enable": "Enable",
-    "extension_disable": "Disable",
     "extension_install_success": "The extension was successfully installed.",
     "extension_removed": "Extension removed.",
     "extension_download_failed": "Download failed: %1",

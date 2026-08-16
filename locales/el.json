@@ -137,5 +137,24 @@ Lazarus
     "update_notify_title": "Διαθέσιμη ενημέρωση",
     "update_notify_text": "Το NullA Browser v%1 είναι πλέον διαθέσιμο. Άνοιξε τις Ρυθμίσεις για να δεις λεπτομέρειες και να το κατεβάσεις.",
     "update_status_downloading": "Λήψη ενημέρωσης...",
-    "download_install_btn": "Λήψη"
+    "download_install_btn": "Λήψη",
+
+    "loading": "Φόρτωση...",
+
+    "enable": "Ενεργοποίηση",
+    "disable": "Απενεργοποίηση",
+
+    "install": "Εγκατάσταση",
+    "uninstall": "Aπεγκατάσταση",
+
+    "installing": "Εγκατάσταση...",
+
+    "extension_title": "Επεκτάσεις NullA",
+    "extension_search_placeholder": "Αναζήτηση επεκτάσεων...",
+    "extension_count": "%1 διαθέσιμη(-ες) επέκταση(-εις)",
+    "extension_install_success": "Η επέκταση εγκαταστάθηκε με επιτυχία.",
+    "extension_removed": "Η επέκταση αφαιρέθηκε.",
+    "extension_download_failed": "Η λήψη απέτυχε: %1",
+    "extension_fetch_failed": "Αποτυχία φόρτωσης της λίστας επεκτάσεων: %1",
+    "extension_invalid_index": "Μη έγκυρη μορφή ευρετηρίου επέκτασης."
 }

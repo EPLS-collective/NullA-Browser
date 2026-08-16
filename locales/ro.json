@@ -137,5 +137,24 @@ Lazarus
     "update_notify_title": "Actualizare disponibilă",
     "update_notify_text": "NullA Browser v%1 este acum disponibil. Deschide Setările pentru a vedea detaliile și a-l descărca.",
     "update_status_downloading": "Se descarcă actualizarea...",
-    "download_install_btn": "Descarcă"
+    "download_install_btn": "Descarcă",
+
+    "loading": "Se încarcă...",
+
+    "enable": "Activează",
+    "disable": "Dezactivează",
+
+    "install": "Instalează",
+    "uninstall": "Dezinstalează",
+
+    "installing": "Se instalează...",
+
+    "extension_title": "Extensii NullA",
+    "extension_search_placeholder": "Caută extensii...",
+    "extension_count": "%1 extensie(i) disponibilă(e)",
+    "extension_install_success": "Extensia a fost instalată cu succes.",
+    "extension_removed": "Extensie eliminată.",
+    "extension_download_failed": "Descărcarea a eșuat: %1",
+    "extension_fetch_failed": "Nu s-a putut încărca lista de extensii: %1",
+    "extension_invalid_index": "Format invalid al indicelui extensiei."
 }
