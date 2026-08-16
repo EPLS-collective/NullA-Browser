@@ -43,7 +43,6 @@ bool Interceptor::isBlocked(const QString &host) const {
 }
 
 void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
-    if (!m_enabled) return;
 
     if (info.resourceType() == QWebEngineUrlRequestInfo::ResourceTypeMainFrame)
         return;
@@ -55,6 +54,8 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
         return;
     }
 
+    if (!m_enabled) return;
+
     QUrl requestUrl = info.requestUrl();
     QString host = requestUrl.host();
     if (host.isEmpty()) return;
@@ -65,6 +66,8 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
 
     if (isBlocked(host)) {
         info.block(true);
-        // qDebug() << "Blocked:" << host; // For Debug
+        #ifdef DEBUG_MODE
+        qDebug() << "Blocked:" << host;
+        #endif
     }
 }

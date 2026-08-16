@@ -335,15 +335,15 @@ void ExtensionStore::populateList()
         auto *actionLayout = new QVBoxLayout();
         actionLayout->setAlignment(Qt::AlignRight);
 
-        auto *button = new QPushButton(installed ? Localization::qget("extension_uninstall")
-        : Localization::qget("extension_install"));
+        auto *button = new QPushButton(installed ? Localization::qget("uninstall")
+        : Localization::qget("install"));
         button->setFixedWidth(100);
         actionLayout->addWidget(button);
 
         if (installed) {
             bool enabled = isExtensionEnabled(info.id);
-            auto *toggleButton = new QPushButton(enabled ? Localization::qget("extension_disable")
-            : Localization::qget("extension_enable"));
+            auto *toggleButton = new QPushButton(enabled ? Localization::qget("disable")
+            : Localization::qget("enable"));
             toggleButton->setFixedWidth(100);
             actionLayout->addWidget(toggleButton);
 
@@ -352,8 +352,8 @@ void ExtensionStore::populateList()
                 QSettings settings("NullA", "Browser");
                 settings.setValue("extensions/disabled/" + info.id, !nowEnabled);
                 emit extensionToggleRequested(info.id, nowEnabled);
-                toggleButton->setText(nowEnabled ? Localization::qget("extension_disable")
-                : Localization::qget("extension_enable"));
+                toggleButton->setText(nowEnabled ? Localization::qget("disable")
+                : Localization::qget("enable"));
             });
         }
 
@@ -390,7 +390,7 @@ void ExtensionStore::filterList(const QString &text)
 void ExtensionStore::startInstall(const ExtensionInfo &info, QPushButton *button)
 {
     button->setEnabled(false);
-    button->setText(Localization::qget("extension_installing"));
+    button->setText(Localization::qget("installing"));
 
     QNetworkRequest req{QUrl(info.downloadUrl)};
     QNetworkReply *reply = m_nam->get(req);
@@ -402,7 +402,7 @@ void ExtensionStore::startInstall(const ExtensionInfo &info, QPushButton *button
             QMessageBox::warning(this, Localization::qget("extension_title"),
                                  Localization::qget("extension_download_failed").arg(reply->errorString()));
             button->setEnabled(true);
-            button->setText(Localization::qget("extension_install"));
+            button->setText(Localization::qget("install"));
             return;
         }
 

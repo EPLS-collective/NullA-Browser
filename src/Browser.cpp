@@ -88,7 +88,9 @@ Browser::Browser(const QString &initialUrl) {
         cookieCache.removeAll(cookie);
         cookieCache.append(cookie);
 
+        #ifdef DEBUG_MODE
         qDebug() << "Saved cookie:" << cookie.name();
+        #endif
 
         saveCookiesToJson();
     });
@@ -97,7 +99,9 @@ Browser::Browser(const QString &initialUrl) {
 
         cookieCache.removeAll(cookie);
 
+        #ifdef DEBUG_MODE
         qDebug() << "Removed cookie:" << cookie.name();
+        #endif
 
         saveCookiesToJson();
     });
@@ -120,7 +124,9 @@ Browser::Browser(const QString &initialUrl) {
                 QString newUA = QString("Chrome/%1").arg(version);
 
                 profile->setHttpUserAgent(newUA);
+                #ifdef DEBUG_MODE
                 qDebug() << "NullA UA:" << newUA;
+                #endif
             } else {
                 qWarning() << "Version information could not be retrieved.";
             }
@@ -243,8 +249,9 @@ Browser::Browser(const QString &initialUrl) {
                 for(const QString& d : domainsToAdd) {
                     adBlocker->addBlockedDomain(d);
                 }
-
+                #ifdef DEBUG_MODE
                 qDebug() << "AdRules:" << count;
+                #endif
             });
         }
         reply->deleteLater();
@@ -277,7 +284,9 @@ Browser::Browser(const QString &initialUrl) {
             profile->scripts()->insert(qwcScript);
             qwcFile.close();
         } else {
+            #ifdef DEBUG_MODE
             qDebug() << "Could not load qwebchannel.js resource; chrome.* polyfill for extensions will not work.";
+            #endif
         }
     }
 
@@ -2063,7 +2072,9 @@ void Browser::loadExtensionBackground(const QString &extId, const QString &extPa
 
     QFile jsFile(extPath + "/" + swFile);
     if (!jsFile.open(QIODevice::ReadOnly)) {
+        #ifdef DEBUG_MODE
         qDebug() << "[Extensions] Background script not found for" << extId << ":" << swFile;
+        #endif
         return;
     }
     QString jsCode = QString::fromUtf8(jsFile.readAll());
@@ -2078,7 +2089,9 @@ void Browser::loadExtensionBackground(const QString &extId, const QString &extPa
 
     connect(bgPage, &QWebEnginePage::loadFinished, this, [bgPage, combined, extId](bool ok) {
         if (!ok) {
+            #ifdef DEBUG_MODE
             qDebug() << "[Extensions] Background page failed to load for" << extId;
+            #endif
             return;
         }
         bgPage->runJavaScript(combined);
@@ -2087,7 +2100,9 @@ void Browser::loadExtensionBackground(const QString &extId, const QString &extPa
     bgPage->setHtml(QStringLiteral("<!DOCTYPE html><html><head><title>background:%1</title></head><body></body></html>").arg(extId));
 
     m_backgroundPages[extId] = bgPage;
+    #ifdef DEBUG_MODE
     qDebug() << "[Extensions] Background page started for" << extId << "(" << swFile << ")";
+    #endif
 }
 
 void Browser::unloadExtensionBackground(const QString &extId) {
