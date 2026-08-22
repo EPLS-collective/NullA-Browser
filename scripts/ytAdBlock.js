@@ -1,6 +1,68 @@
 (function () {
     "use strict";
 
+    const AD_FIELDS = ["adPlacements", "adSlots", "playerAds"];
+
+    const stripAdData = (obj) => {
+        if (!obj || typeof obj !== "object") return obj;
+        for (const field of AD_FIELDS) {
+            if (field in obj) delete obj[field];
+        }
+        if (obj.playerConfig && obj.playerConfig.ssapConfig) {
+            delete obj.playerConfig.ssapConfig; // server-side ad stitching config
+        }
+        return obj;
+    };
+
+    let _ytInitialPlayerResponse;
+    Object.defineProperty(window, "ytInitialPlayerResponse", {
+        configurable: true,
+        get() { return _ytInitialPlayerResponse; },
+                          set(value) { _ytInitialPlayerResponse = stripAdData(value); },
+    });
+
+    const origFetch = window.fetch;
+    window.fetch = function (...args) {
+        const urlArg = args[0];
+        const url = typeof urlArg === "string" ? urlArg : (urlArg && urlArg.url) || "";
+        const isPlayerEndpoint = url.includes("/youtubei/v1/player") || url.includes("/youtubei/v1/next");
+
+        return origFetch.apply(this, args).then((response) => {
+            if (!isPlayerEndpoint) return response;
+            return response.clone().json().then((data) => {
+                stripAdData(data);
+                return new Response(JSON.stringify(data), {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers,
+                });
+            }).catch(() => response);
+        });
+    };
+
+    const origOpen = XMLHttpRequest.prototype.open;
+    const origSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+        this._isPlayerEndpoint = typeof url === "string" &&
+        (url.includes("/youtubei/v1/player") || url.includes("/youtubei/v1/next"));
+        return origOpen.call(this, method, url, ...rest);
+    };
+    XMLHttpRequest.prototype.send = function (...args) {
+        if (this._isPlayerEndpoint) {
+            this.addEventListener("readystatechange", function () {
+                if (this.readyState === 4 && this.responseText) {
+                    try {
+                        const data = JSON.parse(this.responseText);
+                        stripAdData(data);
+                        Object.defineProperty(this, "responseText", { value: JSON.stringify(data) });
+                        Object.defineProperty(this, "response", { value: JSON.stringify(data) });
+                    } catch (e) {}
+                }
+            });
+        }
+        return origSend.apply(this, args);
+    };
+
     const state = {
         initialized: false,
         observers: [],
@@ -35,7 +97,7 @@
         ],
     };
 
-    window.voxTubeAdBlocking = function () {
+    window.nullAdBlocking = function () {
         if (state.adBlockInitialized) return;
         state.adBlockInitialized = true;
 
@@ -122,7 +184,15 @@
 
         // Mutation observer for dynamic content
         if (!state.adObserver) {
-            state.adObserver = new MutationObserver(blockAds);
+            let scheduled = false;
+            state.adObserver = new MutationObserver(() => {
+                if (scheduled) return;
+                scheduled = true;
+                requestAnimationFrame(() => {
+                    blockAds();
+                    scheduled = false;
+                });
+            });
             state.adObserver.observe(document.body, {
                 childList: true,
                 subtree: true,
@@ -132,8 +202,8 @@
     };
 
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", window.voxTubeAdBlocking);
+        document.addEventListener("DOMContentLoaded", window.nullAdBlocking);
     } else {
-        setTimeout(window.voxTubeAdBlocking, 500);
+        setTimeout(window.nullAdBlocking, 500);
     }
 })();

@@ -23,12 +23,19 @@ public:
 
     void interceptRequest(QWebEngineUrlRequestInfo &info) override;
     void addBlockedDomain(const QString &domain);
+    void addBlockedPattern(const QString &pattern);
+    void addAllowedDomain(const QString &domain);
     bool isBlocked(const QString &host) const;
+    bool isBlockedPath(const QString &host, const QString &path) const;
+    bool isAllowed(const QString &host) const;
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }
 
 private:
     std::unordered_set<std::u16string> blockedDomains;
+    std::vector<std::u16string> blockedPatterns;
+    std::unordered_set<std::u16string> allowedDomains;
+    static bool wildcardMatch(std::u16string_view text, std::u16string_view pattern);
     mutable QMutex mutex;
     bool m_enabled = true;
 };

@@ -174,20 +174,14 @@ Browser::Browser(const QString &initialUrl) {
         profile->scripts()->insert(antiFP);
     }
 
-    adBlocker = new Interceptor(profile);
-    profile->setUrlRequestInterceptor(adBlocker);
-    setAdBlockEnabled(settings->value("adBlockEnabled", true).toBool());
-
     m_downloadManager = DownloadManager::instance();
 
     connect(profile, &QWebEngineProfile::downloadRequested, this, &Browser::handleDownload);
 
     // Ad-Blocker initialization and filter list fetching
     adBlocker = new Interceptor(profile);
-    adBlocker = new Interceptor(profile);
     profile->setUrlRequestInterceptor(adBlocker);
-    adBlocker->setEnabled(settings->value("adBlockEnabled", true).toBool());
-    profile->setUrlRequestInterceptor(adBlocker);
+    setAdBlockEnabled(settings->value("adBlockEnabled", true).toBool());
 
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
 
@@ -203,12 +197,24 @@ Browser::Browser(const QString &initialUrl) {
                 QTextStream in(data);
                 int count = 0;
                 QStringList domainsToAdd;
+                QStringList patternsToAdd;
+                QStringList allowsToAdd;
 
                 while (!in.atEnd()) {
                     QString line = in.readLine().trimmed();
                     if (line.isEmpty() || line.startsWith("!") || line.startsWith("[") ||
-                        line.contains("##") || line.contains("#@#") || line.startsWith("@@")) {
+                        line.contains("##") || line.contains("#@#")) {
                         continue;
+                        }
+
+                        if (line.startsWith("@@")) {
+                            QString exception = line.mid(2);
+                            if (exception.startsWith("||")) exception = exception.mid(2);
+                            exception = exception.section('/', 0, 0).section('^', 0, 0).section('$', 0, 0).trimmed().toLower();
+                            if (!exception.isEmpty() && exception.contains(".")) {
+                                allowsToAdd << exception;
+                            }
+                            continue;
                         }
 
                         QString domain;
@@ -216,39 +222,52 @@ Browser::Browser(const QString &initialUrl) {
                         domain = line.mid(2);
                         int end = domain.indexOf(QRegularExpression("[\\^/\\$:]"));
                         if (end != -1) domain = domain.left(end);
-                    } else if (line.contains("/") || line.contains("*")) {
+                    } else if (line.contains("/") && !line.contains("*")) {
+                        QString pattern = line.startsWith("||") ? line.mid(2) : line;
+                        int dollarPos = pattern.indexOf('$');
+                        if (dollarPos != -1) pattern = pattern.left(dollarPos);
+                        pattern = pattern.trimmed().toLower();
+                        if (!pattern.isEmpty()) {
+                            patternsToAdd << pattern;
+                        }
                         continue;
+                    } else if (line.contains("*")) {
+                        QString pattern = line;
+                        int dollarPos = pattern.indexOf('$');
+                        if (dollarPos != -1) pattern = pattern.left(dollarPos);
+                        if (pattern.startsWith("||")) pattern = pattern.mid(2);
+                        if (pattern.startsWith("|")) pattern = pattern.mid(1);
+                        pattern = pattern.trimmed().toLower();
+                        if (!pattern.isEmpty()) {
+                            patternsToAdd << pattern;
+                        }
+                        continue;
+                    } else if (line.startsWith(".")) {
+                        QString d = line.mid(1);
+                        int end = d.indexOf(QRegularExpression("[\\^/\\$:]"));
+                        if (end != -1) d = d.left(end);
+                        domain = d;
                     } else {
                         domain = line;
                     }
 
                     domain = domain.trimmed().toLower();
-                    if (domain.isEmpty() || !domain.contains(".")) continue;
+                    if (domain.isEmpty() || !domain.contains(".") || domain.contains("*")) continue;
 
-                    // Essential domains whitelist to prevent breaking core web services
-                    static const QStringList whiteList = {
-                        "google", "gstatic", "googleapis", "youtube", "ytimg", "ggpht",
-                        "cloudflare", "cdn", "unpkg", "jsdelivr", "fontawesome", "accounts.google",
-                        "discord", "discordapp", "discordmedia", "discordusercontent"
-                    };
-
-                    bool isWhiteListed = false;
-                    for (const QString &allowed : whiteList) {
-                        if (domain.contains(allowed)) {
-                            isWhiteListed = true;
-                            break;
-                        }
-                    }
-
-                    if (!isWhiteListed) {
-                        domainsToAdd << domain;
-                        count++;
-                    }
+                    domainsToAdd << domain;
+                    count++;
                 }
 
                 for(const QString& d : domainsToAdd) {
                     adBlocker->addBlockedDomain(d);
                 }
+                for(const QString& p : patternsToAdd) {
+                    adBlocker->addBlockedPattern(p);
+                }
+                for(const QString& a : allowsToAdd) {
+                    adBlocker->addAllowedDomain(a);
+                }
+
                 #ifdef DEBUG_MODE
                 qDebug() << "AdRules:" << count;
                 #endif
