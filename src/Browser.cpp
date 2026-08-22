@@ -44,6 +44,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QKeyEvent>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <dwmapi.h>
@@ -1492,6 +1493,44 @@ bool Browser::eventFilter(QObject* obj, QEvent* ev) {
         if (ev->type() == QEvent::FocusIn) {
             if (!urlBar->text().isEmpty()) {
                 updateSuggestions(urlBar->text());
+            }
+        }
+
+        if (ev->type() == QEvent::KeyPress) {
+            QKeyEvent* ke = static_cast<QKeyEvent*>(ev);
+
+            if (suggestionList && suggestionList->isVisible() && suggestionList->count() > 0) {
+                int currentRow = suggestionList->currentRow();
+
+                if (ke->key() == Qt::Key_Down) {
+                    int nextRow = (currentRow + 1) % suggestionList->count();
+                    suggestionList->setCurrentRow(nextRow);
+                    return true;
+                }
+
+                if (ke->key() == Qt::Key_Up) {
+                    int prevRow = (currentRow <= 0) ? suggestionList->count() - 1 : currentRow - 1;
+                    suggestionList->setCurrentRow(prevRow);
+                    return true;
+                }
+
+                if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
+                    QListWidgetItem* item = suggestionList->currentItem();
+                    if (item) {
+                        QString url = item->data(Qt::UserRole).toString();
+                        urlBar->setText(url);
+                        handleUrlBarSubmit();
+                        suggestionList->hide();
+                        suggestionList->setCurrentRow(-1);
+                        return true;
+                    }
+                }
+
+                if (ke->key() == Qt::Key_Escape) {
+                    suggestionList->hide();
+                    suggestionList->setCurrentRow(-1);
+                    return true;
+                }
             }
         }
     }
