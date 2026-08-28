@@ -45,6 +45,8 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QKeyEvent>
+#include <QSet>
+#include <QHash>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <dwmapi.h>
@@ -147,7 +149,7 @@ Browser::Browser(const QString &initialUrl) {
     profile->settings()->setAttribute(QWebEngineSettings::WebRTCPublicInterfacesOnly, true); // Prevent local IP leaks
     profile->settings()->setAttribute(QWebEngineSettings::FullScreenSupportEnabled, true);
     profile->settings()->setAttribute(QWebEngineSettings::JavascriptCanOpenWindows, false); // Block pop-ups
-    profile->settings()->setAttribute(QWebEngineSettings::JavascriptCanAccessClipboard, false);
+    // profile->settings()->setAttribute(QWebEngineSettings::JavascriptCanAccessClipboard, false);
     profile->settings()->setAttribute(QWebEngineSettings::LocalContentCanAccessFileUrls, false);
     profile->settings()->setAttribute(QWebEngineSettings::ErrorPageEnabled, true);
     profile->settings()->setAttribute(QWebEngineSettings::PluginsEnabled, false); // Disable PDF/Flash plugins
@@ -186,96 +188,220 @@ Browser::Browser(const QString &initialUrl) {
 
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
 
-    QNetworkRequest request(QUrl("https://filters.adtidy.org/extension/ublock/filters/2.txt"));
+    QStringList filterLists = {
+        "https://filters.adtidy.org/extension/ublock/filters/2.txt", // Base
+        "https://filters.adtidy.org/extension/ublock/filters/3.txt", // Tracking Protection
+        "https://filters.adtidy.org/extension/ublock/filters/4.txt", // Social Media
+    };
 
-    QNetworkReply* reply = manager->get(request);
+    for (const QString &url : filterLists) {
+        QNetworkRequest request{QUrl(url)};
+        QNetworkReply* reply = manager->get(request);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        if (reply->error() == QNetworkReply::NoError) {
-            QByteArray data = reply->readAll();
-            // Process filter rules in a background thread to keep UI responsive
-            QThreadPool::globalInstance()->start([this, data]() {
-                QTextStream in(data);
-                int count = 0;
-                QStringList domainsToAdd;
-                QStringList patternsToAdd;
-                QStringList allowsToAdd;
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            if (reply->error() == QNetworkReply::NoError) {
+                QByteArray data = reply->readAll();
+                // Process filter rules in a background thread to keep UI responsive
+                QThreadPool::globalInstance()->start([this, data]() {
+                    // modifiers we can't safely enforce (need body/header rewrite,
+                    // or reference other rules), drop the rule instead of guessing
+                    static const QSet<QString> kUnsupportedModifiers = {
+                        "badfilter", "csp", "removeparam", "redirect", "redirect-rule",
+                        "replace", "cookie", "empty", "mp4", "cname", "elemhide",
+                        "generichide", "genericblock", "content", "jsonprune", "hls",
+                        "referrerpolicy", "urltransform", "uritransform", "header",
+                        "document", "doc", "all"
+                    };
+                    static const QHash<QString, uint32_t> kResourceKeywords = {
+                        {"script", ResCatScript}, {"image", ResCatImage},
+                        {"stylesheet", ResCatStylesheet}, {"css", ResCatStylesheet},
+                        {"object", ResCatObject},
+                        {"xmlhttprequest", ResCatXHR}, {"xhr", ResCatXHR},
+                        {"subdocument", ResCatSubdocument}, {"frame", ResCatSubdocument},
+                        {"font", ResCatFont}, {"media", ResCatMedia},
+                        {"websocket", ResCatWebSocket}, {"ws", ResCatWebSocket},
+                        {"ping", ResCatPing}, {"popup", ResCatPopup}, {"other", ResCatOther},
+                    };
 
-                while (!in.atEnd()) {
-                    QString line = in.readLine().trimmed();
-                    if (line.isEmpty() || line.startsWith("!") || line.startsWith("[") ||
-                        line.contains("##") || line.contains("#@#")) {
-                        continue;
-                        }
+                    // parses "a,b,c" in "||domain^$a,b,c". false = drop the rule
+                    auto parseFilterOptions = [&](const QString &optionsStr, FilterRule &rule) -> bool {
+                        if (optionsStr.isEmpty()) return true;
+                        const QStringList tokens = optionsStr.split(',', Qt::SkipEmptyParts);
+                        for (QString token : tokens) {
+                            token = token.trimmed();
+                            if (token.isEmpty()) continue;
 
-                        if (line.startsWith("@@")) {
-                            QString exception = line.mid(2);
-                            if (exception.startsWith("||")) exception = exception.mid(2);
-                            exception = exception.section('/', 0, 0).section('^', 0, 0).section('$', 0, 0).trimmed().toLower();
-                            if (!exception.isEmpty() && exception.contains(".")) {
-                                allowsToAdd << exception;
+                            if (token.startsWith("domain=", Qt::CaseInsensitive)) {
+                                const QStringList domains = token.mid(7).split('|', Qt::SkipEmptyParts);
+                                for (const QString &d : domains) {
+                                    if (d.startsWith('~')) rule.domainExcludes.push_back(d.mid(1).toLower().toStdU16String());
+                                    else rule.domainIncludes.push_back(d.toLower().toStdU16String());
+                                }
+                                continue;
                             }
-                            continue;
-                        }
 
-                        QString domain;
-                    if (line.startsWith("||")) {
-                        domain = line.mid(2);
-                        int end = domain.indexOf(QRegularExpression("[\\^/\\$:]"));
-                        if (end != -1) domain = domain.left(end);
-                    } else if (line.contains("/") && !line.contains("*")) {
-                        QString pattern = line.startsWith("||") ? line.mid(2) : line;
-                        int dollarPos = pattern.indexOf('$');
-                        if (dollarPos != -1) pattern = pattern.left(dollarPos);
-                        pattern = pattern.trimmed().toLower();
-                        if (!pattern.isEmpty()) {
-                            patternsToAdd << pattern;
+                            bool negated = token.startsWith('~');
+                            QString key = (negated ? token.mid(1) : token).toLower();
+
+                            if (kUnsupportedModifiers.contains(key)) return false;
+
+                            if (key == "third-party" || key == "3p") { rule.thirdParty = negated ? -1 : 1; continue; }
+                            if (key == "first-party" || key == "1p") { rule.thirdParty = negated ? 1 : -1; continue; }
+                            if (key == "important") { rule.important = true; continue; }
+
+                            auto it = kResourceKeywords.find(key);
+                            if (it != kResourceKeywords.end()) {
+                                if (negated) rule.excludeMask |= it.value();
+                                else rule.includeMask |= it.value();
+                                continue;
+                            }
+
+                            // unknown modifier, drop instead of guessing
+                            return false;
                         }
-                        continue;
-                    } else if (line.contains("*")) {
-                        QString pattern = line;
-                        int dollarPos = pattern.indexOf('$');
-                        if (dollarPos != -1) pattern = pattern.left(dollarPos);
-                        if (pattern.startsWith("||")) pattern = pattern.mid(2);
-                        if (pattern.startsWith("|")) pattern = pattern.mid(1);
-                        pattern = pattern.trimmed().toLower();
-                        if (!pattern.isEmpty()) {
-                            patternsToAdd << pattern;
+                        return true;
+                    };
+
+                    QTextStream in(data);
+                    int count = 0;
+                    QStringList domainsToAdd;
+                    QVector<QPair<QString, FilterRule>> restrictedDomainsToAdd;
+                    QStringList patternsToAdd;
+                    QVector<QPair<QString, FilterRule>> restrictedPatternsToAdd;
+                    QStringList allowsToAdd;
+                    QVector<QPair<QString, FilterRule>> restrictedAllowsToAdd;
+
+                    while (!in.atEnd()) {
+                        QString line = in.readLine().trimmed();
+                        if (line.isEmpty() || line.startsWith("!") || line.startsWith("[") ||
+                            line.contains("##") || line.contains("#@#")) {
+                            continue;
+                            }
+
+                            if (line.startsWith("@@")) {
+                                QString exception = line.mid(2);
+                                if (exception.startsWith("||")) exception = exception.mid(2);
+
+                                QString optionsStr;
+                                int dollarPos = exception.indexOf('$');
+                                if (dollarPos != -1) {
+                                    optionsStr = exception.mid(dollarPos + 1);
+                                    exception = exception.left(dollarPos);
+                                }
+                                exception = exception.section('/', 0, 0).section('^', 0, 0).trimmed().toLower();
+
+                                if (!exception.isEmpty() && exception.contains(".")) {
+                                    FilterRule rule;
+                                    if (parseFilterOptions(optionsStr, rule)) {
+                                        if (rule.isTrivial()) allowsToAdd << exception;
+                                        else restrictedAllowsToAdd << qMakePair(exception, rule);
+                                    }
+                                }
+                                continue;
+                            }
+
+                            QString domain;
+                            QString optionsStr;
+                            if (line.startsWith("||")) {
+                                domain = line.mid(2);
+                                int dollarPos = domain.indexOf('$');
+                                if (dollarPos != -1) {
+                                    optionsStr = domain.mid(dollarPos + 1);
+                                    domain = domain.left(dollarPos);
+                                }
+                                int end = domain.indexOf(QRegularExpression("[\\^/:]"));
+                                if (end != -1) domain = domain.left(end);
+                            } else if (line.contains("/") && !line.contains("*")) {
+                                QString pattern = line.startsWith("||") ? line.mid(2) : line;
+                                int dollarPos = pattern.indexOf('$');
+                                QString patOptions;
+                                if (dollarPos != -1) {
+                                    patOptions = pattern.mid(dollarPos + 1);
+                                    pattern = pattern.left(dollarPos);
+                                }
+                                pattern = pattern.trimmed().toLower();
+                                if (!pattern.isEmpty()) {
+                                    FilterRule rule;
+                                    if (parseFilterOptions(patOptions, rule)) {
+                                        if (rule.isTrivial()) patternsToAdd << pattern;
+                                        else restrictedPatternsToAdd << qMakePair(pattern, rule);
+                                    }
+                                }
+                                continue;
+                            } else if (line.contains("*")) {
+                                QString pattern = line;
+                                int dollarPos = pattern.indexOf('$');
+                                QString patOptions;
+                                if (dollarPos != -1) {
+                                    patOptions = pattern.mid(dollarPos + 1);
+                                    pattern = pattern.left(dollarPos);
+                                }
+                                if (pattern.startsWith("||")) pattern = pattern.mid(2);
+                                if (pattern.startsWith("|")) pattern = pattern.mid(1);
+                                pattern = pattern.trimmed().toLower();
+                                if (!pattern.isEmpty()) {
+                                    FilterRule rule;
+                                    if (parseFilterOptions(patOptions, rule)) {
+                                        if (rule.isTrivial()) patternsToAdd << pattern;
+                                        else restrictedPatternsToAdd << qMakePair(pattern, rule);
+                                    }
+                                }
+                                continue;
+                            } else if (line.startsWith(".")) {
+                                QString d = line.mid(1);
+                                int dollarPos = d.indexOf('$');
+                                if (dollarPos != -1) {
+                                    optionsStr = d.mid(dollarPos + 1);
+                                    d = d.left(dollarPos);
+                                }
+                                int end = d.indexOf(QRegularExpression("[\\^/:]"));
+                                if (end != -1) d = d.left(end);
+                                domain = d;
+                            } else {
+                                domain = line;
+                            }
+
+                            domain = domain.trimmed().toLower();
+                            if (domain.isEmpty() || !domain.contains(".") || domain.contains("*")) continue;
+
+                            FilterRule rule;
+                        if (!parseFilterOptions(optionsStr, rule)) continue;
+
+                        if (rule.isTrivial()) {
+                            domainsToAdd << domain;
+                        } else {
+                            restrictedDomainsToAdd << qMakePair(domain, rule);
                         }
-                        continue;
-                    } else if (line.startsWith(".")) {
-                        QString d = line.mid(1);
-                        int end = d.indexOf(QRegularExpression("[\\^/\\$:]"));
-                        if (end != -1) d = d.left(end);
-                        domain = d;
-                    } else {
-                        domain = line;
+                        count++;
                     }
 
-                    domain = domain.trimmed().toLower();
-                    if (domain.isEmpty() || !domain.contains(".") || domain.contains("*")) continue;
+                    for(const QString& d : domainsToAdd) {
+                        adBlocker->addBlockedDomain(d);
+                    }
+                    for (const auto &pair : restrictedDomainsToAdd) {
+                        adBlocker->addBlockedDomain(pair.first, pair.second);
+                    }
+                    for(const QString& p : patternsToAdd) {
+                        adBlocker->addBlockedPattern(p);
+                    }
+                    for (const auto &pair : restrictedPatternsToAdd) {
+                        adBlocker->addBlockedPattern(pair.first, pair.second);
+                    }
+                    for(const QString& a : allowsToAdd) {
+                        adBlocker->addAllowedDomain(a);
+                    }
+                    for (const auto &pair : restrictedAllowsToAdd) {
+                        adBlocker->addAllowedDomain(pair.first, pair.second);
+                    }
 
-                    domainsToAdd << domain;
-                    count++;
-                }
-
-                for(const QString& d : domainsToAdd) {
-                    adBlocker->addBlockedDomain(d);
-                }
-                for(const QString& p : patternsToAdd) {
-                    adBlocker->addBlockedPattern(p);
-                }
-                for(const QString& a : allowsToAdd) {
-                    adBlocker->addAllowedDomain(a);
-                }
-
-                #ifdef DEBUG_MODE
-                qDebug() << "AdRules:" << count;
-                #endif
-            });
-        }
-        reply->deleteLater();
-    });
+                    #ifdef DEBUG_MODE
+                    qDebug() << "AdRules:" << count;
+                    #endif
+                });
+            }
+            reply->deleteLater();
+        });
+    }
 
     // Layout and UI construction
     QWidget* central = new QWidget();
