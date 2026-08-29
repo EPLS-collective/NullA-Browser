@@ -7,6 +7,8 @@
 
 #include "../include/Interceptor.h"
 #include <QDebug>
+#include <QHostAddress>
+#include <QSet>
 
 Interceptor::Interceptor(QObject* parent)
 : QWebEngineUrlRequestInterceptor(parent)
@@ -120,6 +122,81 @@ bool Interceptor::domainMatchesAny(const QString &host, const std::vector<std::u
     return false;
 }
 
+void Interceptor::loadPublicSuffixData(const QByteArray &data) {
+    QMutexLocker locker(&s_pslMutex);
+    s_pslRules.clear();
+    s_pslExceptions.clear();
+
+    const QList<QByteArray> lines = data.split('\n');
+    for (QByteArray line : lines) {
+        line = line.trimmed();
+        if (line.isEmpty() || line.startsWith("//")) continue;
+
+            if (line.startsWith('!')) {
+                s_pslExceptions.insert(QString::fromUtf8(line.mid(1)).toLower());
+            } else {
+                s_pslRules.insert(QString::fromUtf8(line).toLower());
+            }
+    }
+    s_pslLoaded = true;
+}
+
+QString Interceptor::registrableDomain(const QString &host) {
+    if (host.isEmpty()) return host;
+    const QString lower = host.toLower();
+    {
+        QHostAddress addr;
+        if (addr.setAddress(lower)) return lower;
+    }
+
+    QMutexLocker locker(&s_pslMutex);
+
+    // If PSL hasn't downloaded/filled yet, see the old 2-tagged fallback[cite: 7]
+    if (!s_pslLoaded) {
+        const QStringList labels = lower.split(QLatin1Char('.'), Qt::SkipEmptyParts);
+        if (labels.size() <= 2) return lower;
+        return labels.mid(labels.size() - 2).join(QLatin1Char('.'));
+    }
+
+    QStringList parts = lower.split('.', Qt::SkipEmptyParts);
+    QString suffix;
+
+    for (int i = 0; i < parts.size(); ++i) {
+        QString sub = parts.mid(i).join('.');
+        if (s_pslExceptions.contains(sub)) {
+            suffix = parts.mid(i + 1).join('.');
+            break;
+        }
+    }
+
+    if (suffix.isEmpty()) {
+        for (int i = 0; i < parts.size(); ++i) {
+            QString sub = parts.mid(i).join('.');
+            if (s_pslRules.contains(sub)) {
+                suffix = sub;
+                break;
+            }
+            if (i > 0) {
+                QString wildcardSub = "*." + parts.mid(i).join('.');
+                if (s_pslRules.contains(wildcardSub)) {
+                    suffix = parts.mid(i - 1).join('.');
+                    break;
+                }
+            }
+        }
+    }
+
+    if (suffix.isEmpty()) suffix = parts.last();
+    if (suffix == lower) return lower;
+
+    // Finding eTLD+1 (Include the tag preceding the suffix)
+    QString prefix = lower.left(lower.length() - suffix.length() - 1);
+    QStringList prefixLabels = prefix.split('.', Qt::SkipEmptyParts);
+    if (prefixLabels.isEmpty()) return lower;
+
+    return prefixLabels.last() + QLatin1Char('.') + suffix;
+}
+
 bool Interceptor::restrictedDomainMatch(const std::unordered_map<std::u16string, std::vector<FilterRule>> &map,
                                          const QString &host, uint32_t category, bool thirdParty,
                                          const QString &firstPartyHost) const {
@@ -221,7 +298,7 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
         return;
     }
 
-    const bool thirdParty = true;
+    const bool thirdParty = (registrableDomain(host) != registrableDomain(firstPartyHost));
     const uint32_t category = categoryForResourceType(static_cast<int>(info.resourceType()));
 
     {
@@ -251,10 +328,11 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
         info.block(true);
 
         #ifdef DEBUG_MODE
-        qDebug() << "Blocked:"
-        << host
+        qDebug()
+        << "Blocked:" << host << requestUrl.path()
         << "Type:" << info.resourceType()
-        << "Category:" << category;
+        << "Category:" << category
+        << "3rdParty:" << thirdParty;
         #endif
     }
 }

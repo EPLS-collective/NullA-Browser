@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <QMutex>
+#include <QSet>
 
 // bitmask for $script/$subdocument/etc, mapped from ResourceType
 enum ResourceCategory : uint32_t {
@@ -82,6 +83,7 @@ public:
     bool isEnabled() const { return m_enabled; }
 
     static uint32_t categoryForResourceType(int resourceType);
+    static void loadPublicSuffixData(const QByteArray &data);
 
 private:
     struct PatternRule {
@@ -96,6 +98,7 @@ private:
                                  std::u16string_view combinedView, uint32_t category, bool thirdParty,
                                  const QString &firstPartyHost) const;
     static bool domainMatchesAny(const QString &host, const std::vector<std::u16string> &list);
+    static QString registrableDomain(const QString &host);
 
     std::unordered_set<std::u16string> blockedDomains;
     std::vector<std::u16string> blockedPatterns;
@@ -109,6 +112,11 @@ private:
     static bool wildcardMatch(std::u16string_view text, std::u16string_view pattern);
     mutable QMutex mutex;
     bool m_enabled = true;
+
+    static inline QSet<QString> s_pslRules;
+    static inline QSet<QString> s_pslExceptions;
+    static inline QMutex s_pslMutex;
+    static inline bool s_pslLoaded = false;
 };
 
 #endif // INTERCEPTOR_H

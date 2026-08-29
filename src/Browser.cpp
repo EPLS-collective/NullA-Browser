@@ -403,6 +403,19 @@ Browser::Browser(const QString &initialUrl) {
         });
     }
 
+    QUrl pslUrl("https://publicsuffix.org/list/public_suffix_list.dat");
+    QNetworkReply* reply = manager->get(QNetworkRequest(pslUrl));
+
+    connect(reply, &QNetworkReply::finished, this, [reply]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            QByteArray data = reply->readAll();
+            QThreadPool::globalInstance()->start([data]() {
+                Interceptor::loadPublicSuffixData(data);
+            });
+        }
+        reply->deleteLater();
+    });
+
     // Layout and UI construction
     QWidget* central = new QWidget();
     central->setContentsMargins(0, 0, 0, 0); // Remove margins from window
