@@ -35,6 +35,18 @@ enum ResourceCategory : uint32_t {
     ResCatPopup       = 1u << 11,
 };
 
+enum HttpMethod : uint16_t {
+    MethodGet     = 1u << 0,
+    MethodPost    = 1u << 1,
+    MethodPut     = 1u << 2,
+    MethodDelete  = 1u << 3,
+    MethodHead    = 1u << 4,
+    MethodOptions = 1u << 5,
+    MethodPatch   = 1u << 6,
+    MethodConnect = 1u << 7,
+    MethodTrace   = 1u << 8,
+};
+
 // a rule's $options. default = matches everything (plain "||domain^")
 struct FilterRule {
     uint32_t includeMask = 0; // resource types this applies to (0 = all)
@@ -43,6 +55,8 @@ struct FilterRule {
     bool important = false;
     std::vector<std::u16string> domainIncludes; // $domain=a.com|b.com
     std::vector<std::u16string> domainExcludes; // $domain=~a.com
+    uint16_t methodIncludeMask = 0; // $method=get|post
+    uint16_t methodExcludeMask = 0; // $method=~post
 
     bool matchesResource(uint32_t category) const {
         if (includeMask != 0) return (includeMask & category) != 0;
@@ -54,9 +68,15 @@ struct FilterRule {
         if (thirdParty == -1) return !isThirdParty;
         return true;
     }
+    bool matchesMethod(uint16_t method) const {
+        if (methodIncludeMask != 0) return (methodIncludeMask & method) != 0;
+        if (methodExcludeMask != 0) return (methodExcludeMask & method) == 0;
+        return true;
+    }
     bool isTrivial() const {
         return includeMask == 0 && excludeMask == 0 && thirdParty == 0
-            && domainIncludes.empty() && domainExcludes.empty();
+        && domainIncludes.empty() && domainExcludes.empty()
+        && methodIncludeMask == 0 && methodExcludeMask == 0;
     }
 };
 
@@ -73,16 +93,18 @@ public:
     void addBlockedDomain(const QString &domain, const std::optional<FilterRule> &rule = std::nullopt);
     void addBlockedPattern(const QString &pattern, const std::optional<FilterRule> &rule = std::nullopt);
     void addAllowedDomain(const QString &domain, const std::optional<FilterRule> &rule = std::nullopt);
+    void addAllowedDomain(const QString &domain, const QString &path);
 
     // plain lookups, no options - old API
     bool isBlocked(const QString &host) const;
-    bool isAllowed(const QString &host) const;
+    bool isAllowed(const QString &host, const QString &path) const;
     bool isBlockedPath(const QString &host, const QString &path) const;
 
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }
 
     static uint32_t categoryForResourceType(int resourceType);
+    static uint16_t methodForString(const QByteArray &method);
     static void loadPublicSuffixData(const QByteArray &data);
 
 private:
@@ -92,10 +114,10 @@ private:
     };
 
     bool restrictedDomainMatch(const std::unordered_map<std::u16string, std::vector<FilterRule>> &map,
-                                const QString &host, uint32_t category, bool thirdParty,
+                                const QString &host, uint32_t category, bool thirdParty, uint16_t method,
                                 const QString &firstPartyHost) const;
     bool restrictedPatternMatch(const std::vector<PatternRule> &patterns,
-                                 std::u16string_view combinedView, uint32_t category, bool thirdParty,
+                                 std::u16string_view combinedView, uint32_t category, bool thirdParty, uint16_t method,
                                  const QString &firstPartyHost) const;
     static bool domainMatchesAny(const QString &host, const std::vector<std::u16string> &list);
     static QString registrableDomain(const QString &host);
@@ -103,6 +125,7 @@ private:
     std::unordered_set<std::u16string> blockedDomains;
     std::vector<std::u16string> blockedPatterns;
     std::unordered_set<std::u16string> allowedDomains;
+    std::unordered_map<std::u16string, std::vector<std::u16string>> allowedDomainPaths;
 
     // $-option rules, need request context to evaluate
     std::unordered_map<std::u16string, std::vector<FilterRule>> restrictedBlockedDomains;

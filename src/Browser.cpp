@@ -189,9 +189,12 @@ Browser::Browser(const QString &initialUrl) {
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
 
     QStringList filterLists = {
-        "https://filters.adtidy.org/extension/ublock/filters/2.txt", // Base
-        "https://filters.adtidy.org/extension/ublock/filters/3.txt", // Tracking Protection
-        "https://filters.adtidy.org/extension/ublock/filters/4.txt", // Social Media
+        "https://ublockorigin.github.io/uAssets/filters/filters.txt", // uBlock Origin – Base/Ads
+        "https://ublockorigin.github.io/uAssets/filters/privacy.txt", // uBlock Origin – Privacy
+        "https://ublockorigin.github.io/uAssets/filters/quick-fixes.txt", // uBlock Origin – Quick fixes
+        "https://ublockorigin.github.io/uAssets/filters/unbreak.txt", // uBlock Origin – Unbreak
+        "https://ublockorigin.github.io/uAssets/thirdparties/easylist.txt", // 3rdParty - EasyList
+        "https://ublockorigin.github.io/uAssets/thirdparties/easyprivacy.txt" // 3rdParty - EasyPrivacy
     };
 
     for (const QString &url : filterLists) {
@@ -236,6 +239,19 @@ Browser::Browser(const QString &initialUrl) {
                                 for (const QString &d : domains) {
                                     if (d.startsWith('~')) rule.domainExcludes.push_back(d.mid(1).toLower().toStdU16String());
                                     else rule.domainIncludes.push_back(d.toLower().toStdU16String());
+                                }
+                                continue;
+                            }
+
+                            if (token.startsWith("method=", Qt::CaseInsensitive)) {
+                                const QStringList methods = token.mid(7).split('|', Qt::SkipEmptyParts);
+                                for (const QString &m : methods) {
+                                    bool neg = m.startsWith('~');
+                                    const QByteArray name = (neg ? m.mid(1) : m).toUtf8();
+                                    const uint16_t bit = Interceptor::methodForString(name);
+                                    if (bit == 0) return false; // unknown method, drop rule instead of guessing
+                                    if (neg) rule.methodExcludeMask |= bit;
+                                    else rule.methodIncludeMask |= bit;
                                 }
                                 continue;
                             }
