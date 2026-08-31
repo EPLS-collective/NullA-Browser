@@ -18,7 +18,9 @@ Issues are tracked on:
 
 ## Resources
 
+- [Installation](INSTALLATION.md)
 - [EPLS License](LICENSE.txt)
+- [Qt6](https://www.qt.io/) / [Qt WebEngine](https://doc.qt.io/qt-6/qtwebengine-index.html)
 - [Archived test repository (pre-public development)](https://github.com/Electus2000/NullA-TEST)
 
 Questions? Open an issue.
