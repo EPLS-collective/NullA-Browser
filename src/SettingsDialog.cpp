@@ -650,6 +650,8 @@ SettingsDialog::SettingsDialog(QWebEngineProfile* profile, QWidget* parent)
 
             QMessageBox::information(this, "NullA Browser",
                                      Localization::qget("reset_done_desc"));
+
+            QProcess::startDetached(qApp->applicationFilePath(), qApp->arguments().mid(1));
             qApp->quit();
         }
     });

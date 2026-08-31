@@ -149,7 +149,7 @@ Browser::Browser(const QString &initialUrl) {
     profile->settings()->setAttribute(QWebEngineSettings::WebRTCPublicInterfacesOnly, true); // Prevent local IP leaks
     profile->settings()->setAttribute(QWebEngineSettings::FullScreenSupportEnabled, true);
     profile->settings()->setAttribute(QWebEngineSettings::JavascriptCanOpenWindows, false); // Block pop-ups
-    // profile->settings()->setAttribute(QWebEngineSettings::JavascriptCanAccessClipboard, false);
+    profile->settings()->setAttribute(QWebEngineSettings::JavascriptCanAccessClipboard, true);
     profile->settings()->setAttribute(QWebEngineSettings::LocalContentCanAccessFileUrls, false);
     profile->settings()->setAttribute(QWebEngineSettings::ErrorPageEnabled, true);
     profile->settings()->setAttribute(QWebEngineSettings::PluginsEnabled, false); // Disable PDF/Flash plugins
@@ -186,6 +186,8 @@ Browser::Browser(const QString &initialUrl) {
     profile->setUrlRequestInterceptor(adBlocker);
     setAdBlockEnabled(settings->value("adBlockEnabled", true).toBool());
 
+    adBlocker->addAllowedDomain("googlevideo.com", "/videoplayback"); // It's difficult to completely block ads because of M3.
+
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
 
     QStringList filterLists = {
@@ -197,15 +199,18 @@ Browser::Browser(const QString &initialUrl) {
         "https://ublockorigin.github.io/uAssets/thirdparties/easyprivacy.txt" // 3rdParty - EasyPrivacy
     };
 
-    for (const QString &url : filterLists) {
-        QNetworkRequest request{QUrl(url)};
-        QNetworkReply* reply = manager->get(request);
+    const QString filterCacheDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/FilterCache";
+    QDir().mkpath(filterCacheDir);
 
-        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-            if (reply->error() == QNetworkReply::NoError) {
-                QByteArray data = reply->readAll();
-                // Process filter rules in a background thread to keep UI responsive
-                QThreadPool::globalInstance()->start([this, data]() {
+    for (const QString &url : filterLists) {
+        const QString cachePath = filterCacheDir + "/" + QString::number(qHash(url), 16) + ".txt";
+
+        // Same parsing/apply logic either way, just called with cached bytes
+        // (instant, used at startup so ad blocking is active immediately
+        // instead of waiting on the network) or with a fresh network response.
+        auto applyFilterData = [this](const QByteArray &data) {
+            // Process filter rules in a background thread to keep UI responsive
+            QThreadPool::globalInstance()->start([this, data]() {
                     // modifiers we can't safely enforce (need body/header rewrite,
                     // or reference other rules), drop the rule instead of guessing
                     static const QSet<QString> kUnsupportedModifiers = {
@@ -413,7 +418,37 @@ Browser::Browser(const QString &initialUrl) {
                     #ifdef DEBUG_MODE
                     qDebug() << "AdRules:" << count;
                     #endif
-                });
+            });
+        };
+
+        QFile cacheFile(cachePath);
+        bool hadCache = false;
+        if (cacheFile.open(QIODevice::ReadOnly)) {
+            hadCache = true;
+            applyFilterData(cacheFile.readAll());
+            cacheFile.close();
+        }
+
+        QNetworkRequest request{QUrl(url)};
+        QNetworkReply* reply = manager->get(request);
+
+        connect(reply, &QNetworkReply::finished, this, [this, reply, cachePath, hadCache, applyFilterData]() {
+            if (reply->error() == QNetworkReply::NoError) {
+                QByteArray data = reply->readAll();
+
+                QFile cacheOut(cachePath);
+                if (cacheOut.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                    cacheOut.write(data);
+                    cacheOut.close();
+                }
+
+                // Cache already applied above if it existed, only apply this
+                // fresh copy live when this was the very first run for this URL.
+                if (!hadCache) {
+                    applyFilterData(data);
+                }
+            } else {
+                qWarning() << "Filter list fetch failed:" << reply->url() << reply->errorString();
             }
             reply->deleteLater();
         });
@@ -551,6 +586,8 @@ Browser::Browser(const QString &initialUrl) {
     suggestionList->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
     suggestionList->setContextMenuPolicy(Qt::CustomContextMenu);
     suggestionList->setFocusPolicy(Qt::NoFocus);
+    suggestionList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    suggestionList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     suggestionList->hide();
 
     connect(suggestionList, &QListWidget::customContextMenuRequested, this, &Browser::showBookmarkContextMenu);;
@@ -1897,7 +1934,10 @@ void Browser::updateSuggestions(const QString &text)
     if (suggestionList->count() > 0) {
         suggestionList->setFixedWidth(urlBar->width());
 
-        int listHeight = suggestionList->sizeHintForRow(0) * qMin(suggestionList->count(), 8) + 5;
+        const int rows = qMin(suggestionList->count(), 8);
+        int listHeight = suggestionList->sizeHintForRow(0) * rows
+                        + suggestionList->frameWidth() * 2 + 1;
+
         listHeight = qMin(listHeight, 300);
         suggestionList->setFixedHeight(listHeight);
 

@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QWebChannel>
 #include <QDebug>
+#include <QTimer>
 
 class WebPage : public QWebEnginePage {
 public:
@@ -88,13 +89,19 @@ TabPage::TabPage(QWebEngineProfile* profile, QWidget* parent) : QStackedWidget(p
     });
 
     connect(view, &QWebEngineView::loadFinished, this, [this](bool) {
-        if (currentIndex() == 1) {
-            if (view->icon().isNull()) {
-                emit iconChanged(QIcon(":/nulla_icon.png"));
-            } else {
-                emit iconChanged(view->icon());
-            }
+        if (currentIndex() != 1) return;
+
+        // Favicon can arrive slightly after loadFinished, give it a
+        // short grace period before falling back, to avoid an icon flicker.
+        if (!view->icon().isNull()) {
+            emit iconChanged(view->icon());
+            return;
         }
+
+        QTimer::singleShot(300, this, [this]() {
+            if (currentIndex() != 1) return;
+            emit iconChanged(view->icon().isNull() ? QIcon(":/nulla_icon.png") : view->icon());
+        });
     });
 }
 
