@@ -634,7 +634,7 @@ Browser::Browser(const QString &initialUrl) {
     });
 
     // Download cancellation logic
-    QShortcut* cancelKey = new QShortcut(QKeySequence("Ctrl+C"), this);
+    QShortcut* cancelKey = new QShortcut(QKeySequence("Ctrl+Shift+X"), this);
     connect(cancelKey, &QShortcut::activated, this, [this]() {
         if (m_downloadManager->activeCount() <= 0) return;
 
@@ -666,7 +666,6 @@ Browser::Browser(const QString &initialUrl) {
     maydayAudio = new QAudioOutput(this);
 
     maydayPlayer->setAudioOutput(maydayAudio);
-    maydayPlayer->setSource(QUrl("qrc:/mayday/a_las_barricadas.ogg"));
     maydayAudio->setVolume(0.50);
 
     QTimer::singleShot(0, this, [this]() {
@@ -679,6 +678,9 @@ Browser::Browser(const QString &initialUrl) {
 
             settings->setValue("mayday/lastPlayedYear", now.year());
             maydayActive = true;
+            // setSource() is deferred to here (instead of at startup) so FFmpeg's
+            // format-probe log only fires on the one day a year this actually plays.
+            maydayPlayer->setSource(QUrl("qrc:/mayday/a_las_barricadas.ogg"));
             maydayPlayer->play();
             QMessageBox::information(this, Localization::qget("mayday_title"), Localization::qget("mayday_desc"));
         }

@@ -85,5 +85,5 @@ QString DownloadManager::statusText() const
 
     if (display.isEmpty()) return QString();
 
-    return display.join(" | ") + " (Press Ctrl+C to cancel download.)";
+    return display.join(" | ") + " (Press Ctrl+Shift+X to cancel download.)";
 }
