@@ -186,8 +186,6 @@ Browser::Browser(const QString &initialUrl) {
     profile->setUrlRequestInterceptor(adBlocker);
     setAdBlockEnabled(settings->value("adBlockEnabled", true).toBool());
 
-    adBlocker->addAllowedDomain("googlevideo.com", "/videoplayback"); // It's difficult to completely block ads because of M3.
-
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
 
     QStringList filterLists = {
@@ -283,6 +281,29 @@ Browser::Browser(const QString &initialUrl) {
                         return true;
                     };
 
+                    auto extractBase = [](QString l) -> QString {
+                        l = l.trimmed();
+                        int d = l.indexOf('$');
+                        if (d != -1) l = l.left(d);
+                        return l.trimmed().toLower();
+                    };
+
+                    QSet<QString> badfilteredBases; {
+                        QTextStream scan(data);
+                        while (!scan.atEnd()) {
+                            QString line = scan.readLine().trimmed();
+                            if (line.isEmpty() || line.startsWith('!') || line.startsWith('@')) continue;
+                            int dollarPos = line.indexOf('$');
+                            if (dollarPos == -1) continue;
+                            const QStringList opts = line.mid(dollarPos + 1).split(',', Qt::SkipEmptyParts);
+                            bool hasBadfilter = false;
+                            for (const QString &o : opts) {
+                                if (o.trimmed().compare("badfilter", Qt::CaseInsensitive) == 0) { hasBadfilter = true; break; }
+                            }
+                            if (hasBadfilter) badfilteredBases.insert(extractBase(line));
+                        }
+                    }
+
                     QTextStream in(data);
                     int count = 0;
                     QStringList domainsToAdd;
@@ -299,6 +320,10 @@ Browser::Browser(const QString &initialUrl) {
                             continue;
                             }
 
+                            if (!badfilteredBases.isEmpty() && badfilteredBases.contains(extractBase(line))) {
+                                continue; // cancelled by a $badfilter rule elsewhere in this list
+                            }
+
                             if (line.startsWith("@@")) {
                                 QString exception = line.mid(2);
                                 if (exception.startsWith("||")) exception = exception.mid(2);
@@ -309,7 +334,19 @@ Browser::Browser(const QString &initialUrl) {
                                     optionsStr = exception.mid(dollarPos + 1);
                                     exception = exception.left(dollarPos);
                                 }
-                                exception = exception.section('/', 0, 0).section('^', 0, 0).trimmed().toLower();
+
+                                if (exception.contains('/')) {
+                                    QString pattern = exception.trimmed().toLower();
+                                    if (!pattern.isEmpty()) {
+                                        FilterRule rule;
+                                        if (parseFilterOptions(optionsStr, rule)) {
+                                            adBlocker->addAllowedDomain(pattern.section('/', 0, 0), rule.domainIncludes.empty() && rule.domainExcludes.empty() ? std::optional<FilterRule>(rule) : std::optional<FilterRule>(rule));
+                                        }
+                                    }
+                                    continue;
+                                }
+
+                                exception = exception.section('^', 0, 0).trimmed().toLower();
 
                                 if (!exception.isEmpty() && exception.contains(".")) {
                                     FilterRule rule;
@@ -330,6 +367,19 @@ Browser::Browser(const QString &initialUrl) {
                                     optionsStr = domain.mid(dollarPos + 1);
                                     domain = domain.left(dollarPos);
                                 }
+                                // '/' means this targets a path, not the whole domain route it through the pattern matcher instead of blockedDomains.
+                                int slashPos = domain.indexOf('/');
+                                if (slashPos != -1) {
+                                    QString pattern = domain.trimmed().toLower();
+                                    if (!pattern.isEmpty()) {
+                                        FilterRule rule;
+                                        if (parseFilterOptions(optionsStr, rule)) {
+                                            if (rule.isTrivial()) patternsToAdd << pattern;
+                                            else restrictedPatternsToAdd << qMakePair(pattern, rule);
+                                        }
+                                    }
+                                    continue;
+                                }
                                 int end = domain.indexOf(QRegularExpression("[\\^/:]"));
                                 if (end != -1) domain = domain.left(end);
                             } else if (line.contains("/") && !line.contains("*")) {
@@ -340,6 +390,11 @@ Browser::Browser(const QString &initialUrl) {
                                     patOptions = pattern.mid(dollarPos + 1);
                                     pattern = pattern.left(dollarPos);
                                 }
+                                // '|' anchors the URL start/end, it never appears literally
+                                // in a real URL, so leaving it in the pattern text makes the
+                                // rule permanently unmatchable.
+                                if (pattern.startsWith("|")) pattern = pattern.mid(1);
+                                if (pattern.endsWith("|")) pattern.chop(1);
                                 pattern = pattern.trimmed().toLower();
                                 if (!pattern.isEmpty()) {
                                     FilterRule rule;
@@ -359,6 +414,7 @@ Browser::Browser(const QString &initialUrl) {
                                 }
                                 if (pattern.startsWith("||")) pattern = pattern.mid(2);
                                 if (pattern.startsWith("|")) pattern = pattern.mid(1);
+                                if (pattern.endsWith("|")) pattern.chop(1);
                                 pattern = pattern.trimmed().toLower();
                                 if (!pattern.isEmpty()) {
                                     FilterRule rule;

@@ -294,6 +294,50 @@ bool Interceptor::restrictedPatternMatch(const std::vector<PatternRule> &pattern
     return false;
 }
 
+bool Interceptor::hasImportantBlockMatch(const QString &host, uint32_t category, bool thirdParty, uint16_t method,
+                                          const QString &firstPartyHost, const QString &path) const {
+    // caller must hold "mutex"
+    QString lowerHost = host.toLower();
+    std::u16string_view hostView(reinterpret_cast<const char16_t*>(lowerHost.utf16()), lowerHost.size());
+
+    auto matches = [&](const FilterRule &rule) -> bool {
+        if (!rule.important) return false;
+        if (!rule.matchesResource(category)) return false;
+        if (!rule.matchesThirdParty(thirdParty)) return false;
+        if (!rule.matchesMethod(method)) return false;
+        if (!rule.domainExcludes.empty() && domainMatchesAny(firstPartyHost, rule.domainExcludes)) return false;
+        if (!rule.domainIncludes.empty() && !domainMatchesAny(firstPartyHost, rule.domainIncludes)) return false;
+        return true;
+    };
+
+    auto checkAt = [&](std::u16string_view suffix) -> bool {
+        auto it = restrictedBlockedDomains.find(std::u16string(suffix));
+        if (it == restrictedBlockedDomains.end()) return false;
+        for (const auto &rule : it->second) {
+            if (matches(rule)) return true;
+        }
+        return false;
+    };
+
+    if (checkAt(hostView)) return true;
+    size_t index = 0;
+    while ((index = hostView.find(u'.', index)) != std::u16string_view::npos) {
+        index++;
+        if (checkAt(hostView.substr(index))) return true;
+    }
+
+    QString combined = (host + path).toLower();
+    std::u16string_view view(reinterpret_cast<const char16_t*>(combined.utf16()), combined.size());
+    for (const auto &pr : restrictedBlockedPatterns) {
+        if (!matches(pr.rule)) continue;
+        bool hit = pr.pattern.find(u'*') != std::u16string::npos
+            ? wildcardMatch(view, std::u16string_view(pr.pattern))
+            : view.find(std::u16string_view(pr.pattern)) != std::u16string_view::npos;
+        if (hit) return true;
+    }
+    return false;
+}
+
 uint32_t Interceptor::categoryForResourceType(int resourceType) {
     using RT = QWebEngineUrlRequestInfo::ResourceType;
     switch (static_cast<RT>(resourceType)) {
@@ -367,6 +411,15 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
 
     {
         QMutexLocker locker(&mutex);
+
+        // $important block rules always win, even over an allow rule.
+        if (hasImportantBlockMatch(host, category, thirdParty, method, firstPartyHost, requestUrl.path())) {
+            info.block(true);
+            #ifdef DEBUG_MODE
+            qDebug() << "Blocked (important):" << host << requestUrl.path();
+            #endif
+            return;
+        }
 
         // allow rules only win for the resource type they declare
         if (allowedDomains.find(host.toLower().toStdU16String()) != allowedDomains.end())

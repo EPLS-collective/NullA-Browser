@@ -76,7 +76,8 @@ struct FilterRule {
     bool isTrivial() const {
         return includeMask == 0 && excludeMask == 0 && thirdParty == 0
         && domainIncludes.empty() && domainExcludes.empty()
-        && methodIncludeMask == 0 && methodExcludeMask == 0;
+        && methodIncludeMask == 0 && methodExcludeMask == 0
+        && !important;
     }
 };
 
@@ -119,6 +120,8 @@ private:
     bool restrictedPatternMatch(const std::vector<PatternRule> &patterns,
                                  std::u16string_view combinedView, uint32_t category, bool thirdParty, uint16_t method,
                                  const QString &firstPartyHost) const;
+    bool hasImportantBlockMatch(const QString &host, uint32_t category, bool thirdParty, uint16_t method,
+                                 const QString &firstPartyHost, const QString &path) const;
     static bool domainMatchesAny(const QString &host, const std::vector<std::u16string> &list);
     static QString registrableDomain(const QString &host);
 
