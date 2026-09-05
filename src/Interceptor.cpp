@@ -382,6 +382,113 @@ bool Interceptor::wildcardMatch(std::u16string_view text, std::u16string_view pa
     return p == pattern.size();
 }
 
+bool Interceptor::isSafeCosmeticSelector(const QString &selector) {
+    if (selector.isEmpty() || selector.size() > 512) return false;
+
+    // uBlock/AdGuard "procedural" cosmetic operators aren't plain CSS and we
+    // can't safely evaluate them via querySelectorAll/<style>. Drop instead
+    // of misinterpreting them.
+    static const QStringList kUnsafeMarkers = {
+        ":has-text(", ":matches-css(", ":xpath(", ":upward(", ":remove(",
+        ":style(", ":matches-attr(", ":matches-path(", "+js(", ":contains(",
+        ":min-text-length(", ":others("
+    };
+    for (const QString &m : kUnsafeMarkers)
+        if (selector.contains(m, Qt::CaseInsensitive)) return false;
+
+        // Never allow characters that could break out of the JS template literal
+        // this gets embedded into later, a compromised/malicious filter list is
+        // otherwise a script injection vector via a backtick in a "selector".
+        for (const QChar &c : selector)
+            if (c == QChar('`') || c == QChar('<') || c == QChar('>')) return false;
+
+            return true;
+}
+
+void Interceptor::addCosmeticRule(const QStringList &domains, const QString &selector, bool isException) {
+    if (!isSafeCosmeticSelector(selector)) return;
+    const std::u16string sel = selector.trimmed().toStdU16String();
+    if (sel.empty()) return;
+
+    QMutexLocker locker(&cosmeticMutex);
+
+    if (domains.isEmpty()) {
+        if (isException) cosmeticGenericExceptions.insert(sel);
+        else cosmeticGenericSelectors.push_back(sel);
+        return;
+    }
+
+    for (const QString &d : domains) {
+        QString domain = d.trimmed().toLower();
+        const bool negated = domain.startsWith('~');
+        if (negated) domain = domain.mid(1);
+        if (domain.isEmpty()) continue;
+
+        const std::u16string key = domain.toStdU16String();
+        // "~domain##sel" means "hide everywhere except this domain",
+        // that's an exception scoped to this domain.
+        if (isException || negated) cosmeticExceptionsByDomain[key].insert(sel);
+        else cosmeticSelectorsByDomain[key].push_back(sel);
+    }
+}
+
+QString Interceptor::genericCosmeticCss() const {
+    QMutexLocker locker(&cosmeticMutex);
+    if (cosmeticGenericSelectors.empty()) return QString();
+
+    QStringList selectors;
+    for (const auto &s : cosmeticGenericSelectors) {
+        if (cosmeticGenericExceptions.count(s)) continue;
+        selectors << QString::fromStdU16String(s);
+    }
+    if (selectors.isEmpty()) return QString();
+
+    // :where(...) is a *forgiving* selector list, one bad/unsupported
+    // selector in the batch is skipped instead of invalidating the whole
+    // rule, and it carries zero specificity so it can't fight page CSS.
+    return QStringLiteral(":where(\n%1\n) { display: none !important; }").arg(selectors.join(",\n"));
+}
+
+QString Interceptor::cosmeticCssFor(const QString &host) const {
+    if (host.isEmpty()) return QString();
+    const QString lowerHost = host.toLower();
+    std::u16string_view hostView(reinterpret_cast<const char16_t*>(lowerHost.utf16()), lowerHost.size());
+
+    QMutexLocker locker(&cosmeticMutex);
+
+    QSet<QString> exceptions;
+    auto collectExceptionsAt = [&](std::u16string_view suffix) {
+        auto it = cosmeticExceptionsByDomain.find(std::u16string(suffix));
+        if (it == cosmeticExceptionsByDomain.end()) return;
+        for (const auto &s : it->second) exceptions.insert(QString::fromStdU16String(s));
+    };
+        collectExceptionsAt(hostView);
+        for (size_t i = 0; (i = hostView.find(u'.', i)) != std::u16string_view::npos; )
+            collectExceptionsAt(hostView.substr(++i));
+    for (const auto &s : cosmeticGenericExceptions) exceptions.insert(QString::fromStdU16String(s));
+
+    QSet<QString> selectors;
+    auto collectAt = [&](std::u16string_view suffix) {
+        auto it = cosmeticSelectorsByDomain.find(std::u16string(suffix));
+        if (it == cosmeticSelectorsByDomain.end()) return;
+        for (const auto &s : it->second) {
+            QString sel = QString::fromStdU16String(s);
+            if (!exceptions.contains(sel)) selectors.insert(sel);
+        }
+    };
+    collectAt(hostView);
+    for (size_t i = 0; (i = hostView.find(u'.', i)) != std::u16string_view::npos; )
+        collectAt(hostView.substr(++i));
+    for (const auto &s : cosmeticGenericSelectors) {
+        QString sel = QString::fromStdU16String(s);
+        if (!exceptions.contains(sel)) selectors.insert(sel);
+    }
+
+    if (selectors.isEmpty()) return QString();
+    return QStringLiteral(":where(\n%1\n) { display: none !important; }")
+    .arg(QStringList(selectors.begin(), selectors.end()).join(",\n"));
+}
+
 void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
 
     if (info.resourceType() == QWebEngineUrlRequestInfo::ResourceTypeMainFrame)
@@ -401,9 +508,6 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
     if (host.isEmpty()) return;
 
     QString firstPartyHost = info.firstPartyUrl().host();
-    if (host == firstPartyHost) {
-        return;
-    }
 
     const bool thirdParty = (registrableDomain(host) != registrableDomain(firstPartyHost));
     const uint32_t category = categoryForResourceType(static_cast<int>(info.resourceType()));

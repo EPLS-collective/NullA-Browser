@@ -132,6 +132,9 @@ private:
 
     void setAdBlockEnabled(bool enabled);
 
+    void refreshCosmeticGenericScript();
+    void applyCosmeticFiltersForPage(TabPage* page, const QString &host);
+
     void loadExtensionScripts(const QString &extId);
     QString chromePolyfillFor(const QString &extId, bool isBackground = false) const;
     void unloadExtensionScripts(const QString &extId);

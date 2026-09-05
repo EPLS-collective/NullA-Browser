@@ -108,6 +108,19 @@ public:
     static uint16_t methodForString(const QByteArray &method);
     static void loadPublicSuffixData(const QByteArray &data);
 
+    // Cosmetic (CSS element-hiding) filters: "domain1,domain2##selector"
+    // (hide) or "domain1,domain2#@#selector" (unhide exception).
+    // domains.isEmpty() == generic rule, applies on every site.
+    void addCosmeticRule(const QStringList &domains, const QString &selector, bool isException);
+
+    // Domain-specific + generic selectors combined for this host, minus
+    // exceptions, ready to drop straight into a <style> tag. Empty if none.
+    QString cosmeticCssFor(const QString &host) const;
+
+    // Only the generic (non domain-scoped) selectors - safe to inject once
+    // for the whole profile since it doesn't depend on which page loads.
+    QString genericCosmeticCss() const;
+
 private:
     struct PatternRule {
         std::u16string pattern;
@@ -143,6 +156,14 @@ private:
     static inline QSet<QString> s_pslExceptions;
     static inline QMutex s_pslMutex;
     static inline bool s_pslLoaded = false;
+
+    static bool isSafeCosmeticSelector(const QString &selector);
+
+    std::unordered_map<std::u16string, std::vector<std::u16string>> cosmeticSelectorsByDomain;
+    std::unordered_map<std::u16string, std::unordered_set<std::u16string>> cosmeticExceptionsByDomain;
+    std::vector<std::u16string> cosmeticGenericSelectors;
+    std::unordered_set<std::u16string> cosmeticGenericExceptions;
+    mutable QMutex cosmeticMutex;
 };
 
 #endif // INTERCEPTOR_H

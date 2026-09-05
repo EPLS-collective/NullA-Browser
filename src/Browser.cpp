@@ -313,11 +313,36 @@ Browser::Browser(const QString &initialUrl) {
                     QStringList allowsToAdd;
                     QVector<QPair<QString, FilterRule>> restrictedAllowsToAdd;
 
+                    struct CosmeticRuleData { QStringList domains; QString selector; bool isException; };
+                    QVector<CosmeticRuleData> cosmeticRulesToAdd;
+
                     while (!in.atEnd()) {
                         QString line = in.readLine().trimmed();
-                        if (line.isEmpty() || line.startsWith("!") || line.startsWith("[") ||
-                            line.contains("##") || line.contains("#@#")) {
+                        if (line.isEmpty() || line.startsWith("!") || line.startsWith("[")) {
                             continue;
+                            }
+
+                            // Cosmetic filters: "domain1,domain2##selector" or generic "##selector",
+                            // with "#@#" exceptions. We don't support "#$#"/"#%#" injection or
+                            // scriptlets to prevent untrusted CSS/JavaScript execution.
+                            if (!line.contains("#$#") && !line.contains("#%#") &&
+                                (line.contains("#@#") || line.contains("##"))) {
+                                const bool isException = line.contains("#@#");
+                            const QString marker = isException ? "#@#" : "##";
+                            const int markerPos = line.indexOf(marker);
+                            if (markerPos == -1) continue;
+
+                            const QString domainsPart = line.left(markerPos).trimmed();
+                                const QString selector = line.mid(markerPos + marker.length()).trimmed();
+
+                                QStringList domains;
+                                if (!domainsPart.isEmpty()) {
+                                    domains = domainsPart.split(',', Qt::SkipEmptyParts);
+                                    for (QString &d : domains) d = d.trimmed().toLower();
+                                }
+                                if (!selector.isEmpty())
+                                    cosmeticRulesToAdd << CosmeticRuleData{domains, selector, isException};
+                                continue;
                             }
 
                             if (!badfilteredBases.isEmpty() && badfilteredBases.contains(extractBase(line))) {
@@ -452,6 +477,9 @@ Browser::Browser(const QString &initialUrl) {
                         count++;
                     }
 
+                    for (const auto &c : cosmeticRulesToAdd) {
+                        adBlocker->addCosmeticRule(c.domains, c.selector, c.isException);
+                    }
                     for(const QString& d : domainsToAdd) {
                         adBlocker->addBlockedDomain(d);
                     }
@@ -470,6 +498,9 @@ Browser::Browser(const QString &initialUrl) {
                     for (const auto &pair : restrictedAllowsToAdd) {
                         adBlocker->addAllowedDomain(pair.first, pair.second);
                     }
+
+                    // profile->scripts() / tabWidget must be touched on the GUI thread.
+                    QMetaObject::invokeMethod(this, [this]() { refreshCosmeticGenericScript(); }, Qt::QueuedConnection);
 
                     #ifdef DEBUG_MODE
                     qDebug() << "AdRules:" << count;
@@ -1050,6 +1081,104 @@ void Browser::applyTheme(int themeIndex) {
     }
 }
 
+void Browser::refreshCosmeticGenericScript() {
+    const QString css = adBlocker->genericCosmeticCss();
+    QString escaped = css;
+    escaped.replace('\\', "\\\\").replace('`', "\\`").replace("${", "\\${");
+
+    QWebEngineScriptCollection* scripts = profile->scripts();
+    const QList<QWebEngineScript> existing = scripts->find("cosmeticGeneric");
+    for (const QWebEngineScript &s : existing) scripts->remove(s);
+    if (css.isEmpty()) return;
+
+    const QString jsBody = QString(R"(
+        (function() {
+            function inject() {
+                var old = document.getElementById("cosmeticGeneric");
+                if (old) old.remove();
+                var style = document.createElement('style');
+                style.id = "cosmeticGeneric";
+                style.textContent = `%1`;
+                (document.head || document.documentElement).appendChild(style);
+            }
+            if (document.documentElement) {
+                inject();
+            } else {
+                new MutationObserver(function(_, observer) {
+                    if (document.documentElement) {
+                        observer.disconnect();
+                        inject();
+                    }
+                }).observe(document, { childList: true });
+            }
+        })();
+    )").arg(escaped);
+
+    QWebEngineScript script;
+    script.setName("cosmeticGeneric");
+    script.setInjectionPoint(QWebEngineScript::DocumentCreation);
+    script.setWorldId(QWebEngineScript::MainWorld);
+    script.setRunsOnSubFrames(true);
+    script.setSourceCode(jsBody);
+    scripts->insert(script);
+
+    for (int i = 0; i < tabWidget->count(); ++i) {
+        TabPage* p = qobject_cast<TabPage*>(tabWidget->widget(i));
+        if (p && p->webView() && p->webView()->page())
+            p->webView()->page()->runJavaScript(jsBody);
+    }
+}
+
+void Browser::applyCosmeticFiltersForPage(TabPage* page, const QString &host) {
+    if (!page || !page->webView() || !page->webView()->page()) return;
+    QWebEnginePage* webPage = page->webView()->page();
+
+    const QString css = adBlocker->isEnabled() ? adBlocker->cosmeticCssFor(host) : QString();
+    QString escaped = css;
+    escaped.replace('\\', "\\\\").replace('`', "\\`").replace("${", "\\${");
+
+    QWebEngineScriptCollection &pageScripts = webPage->scripts();
+    const QList<QWebEngineScript> existing = pageScripts.find("cosmeticDomain");
+    for (const QWebEngineScript &s : existing) pageScripts.remove(s);
+
+    const QString jsBody = QString(R"(
+        (function() {
+            var css = `%1`;
+            if (!css) return;
+            function inject() {
+                var old = document.getElementById("cosmeticDomain");
+                if (old) old.remove();
+                var style = document.createElement('style');
+                style.id = "cosmeticDomain";
+                style.textContent = css;
+                (document.head || document.documentElement).appendChild(style);
+            }
+            if (document.documentElement) {
+                inject();
+            } else {
+                new MutationObserver(function(_, observer) {
+                    if (document.documentElement) {
+                        observer.disconnect();
+                        inject();
+                    }
+                }).observe(document, { childList: true });
+            }
+        })();
+    )").arg(escaped);
+
+    if (!css.isEmpty()) {
+        QWebEngineScript script;
+        script.setName("cosmeticDomain");
+        script.setInjectionPoint(QWebEngineScript::DocumentCreation);
+        script.setWorldId(QWebEngineScript::MainWorld);
+        script.setRunsOnSubFrames(true);
+        script.setSourceCode(jsBody);
+        pageScripts.insert(script);
+    }
+
+    webPage->runJavaScript(jsBody);
+}
+
 void Browser::createToolbar() {
     toolbar = new QToolBar();
     toolbar->setMovable(false);
@@ -1530,6 +1659,8 @@ void Browser::addNewTab() {
             renderController->enable(true);
             renderController->request();
         }
+
+        applyCosmeticFiltersForPage(page, u.host());
     });
 
     connect(page->getStartPage(), &StartPage::focusUrlBarAndType, this, [this](const QString& text) {
