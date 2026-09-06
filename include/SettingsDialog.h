@@ -41,16 +41,16 @@ private slots:
 private:
     bool isSystemDarkTheme();
 
-    QWebEngineProfile* m_profile;
-    QComboBox* themeCombo;
-    QComboBox* searchCombo;
-    QComboBox* cacheCombo;
-    QPushButton* addEngineBtn;
-    QSettings* settings;
+    QWebEngineProfile* m_profile = nullptr;
+    QComboBox* themeCombo = nullptr;
+    QComboBox* searchCombo = nullptr;
+    QComboBox* cacheCombo = nullptr;
+    QPushButton* addEngineBtn = nullptr;
+    QSettings* settings = nullptr;
 
-    UpdateChecker* m_updateChecker;
-    QPushButton* checkUpdatesBtn;
-    QLabel* updateStatusLabel;
+    UpdateChecker* m_updateChecker = nullptr;
+    QPushButton* checkUpdatesBtn = nullptr;
+    QLabel* updateStatusLabel = nullptr;
     QString m_pendingDownloadUrl;
     bool m_updateReady = false;
 };

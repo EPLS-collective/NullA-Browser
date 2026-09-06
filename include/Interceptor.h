@@ -18,6 +18,7 @@
 #include <vector>
 #include <QMutex>
 #include <QSet>
+#include <QHash>
 
 // bitmask for $script/$subdocument/etc, mapped from ResourceType
 enum ResourceCategory : uint32_t {
@@ -130,13 +131,20 @@ private:
     bool restrictedDomainMatch(const std::unordered_map<std::u16string, std::vector<FilterRule>> &map,
                                 const QString &host, uint32_t category, bool thirdParty, uint16_t method,
                                 const QString &firstPartyHost) const;
-    bool restrictedPatternMatch(const std::vector<PatternRule> &patterns,
-                                 std::u16string_view combinedView, uint32_t category, bool thirdParty, uint16_t method,
-                                 const QString &firstPartyHost) const;
-    bool hasImportantBlockMatch(const QString &host, uint32_t category, bool thirdParty, uint16_t method,
-                                 const QString &firstPartyHost, const QString &path) const;
+    bool hasImportantMatch(std::u16string_view hostView, std::u16string_view combinedView,
+                           uint32_t category, bool thirdParty, uint16_t method,
+                           const QString &firstPartyHost) const;
+    bool matchBlockingPatterns(std::u16string_view combinedView, uint32_t category, bool thirdParty,
+                               uint16_t method, const QString &firstPartyHost, bool onlyImportant) const;
+    bool isAllowedInternal(std::u16string_view hostView, const QString &lowerPath, const QString &lowerHost,
+                           uint32_t category, bool thirdParty, uint16_t method,
+                           const QString &firstPartyHost) const;
+
     static bool domainMatchesAny(const QString &host, const std::vector<std::u16string> &list);
     static QString registrableDomain(const QString &host);
+    static bool checkDomainSet(const std::unordered_set<std::u16string> &set, std::u16string_view hostView);
+    static std::u16string firstToken(std::u16string_view pattern);
+    static void collectUrlTokens(std::u16string_view combined, std::vector<std::u16string> &out);
 
     std::unordered_set<std::u16string> blockedDomains;
     std::vector<std::u16string> blockedPatterns;
@@ -148,6 +156,12 @@ private:
     std::vector<PatternRule> restrictedBlockedPatterns;
     std::unordered_map<std::u16string, std::vector<FilterRule>> restrictedAllowedDomains;
 
+    // token-bucket index over blockedPatterns / restrictedBlockedPatterns so a
+    // request only probes patterns sharing one of its own host/path tokens
+    // instead of scanning the whole rule list.
+    std::unordered_map<std::u16string, std::vector<uint32_t>> m_patternIndex;
+    std::unordered_map<std::u16string, std::vector<uint32_t>> m_restrictedPatternIndex;
+
     static bool wildcardMatch(std::u16string_view text, std::u16string_view pattern);
     mutable QMutex mutex;
     bool m_enabled = true;
@@ -156,6 +170,8 @@ private:
     static inline QSet<QString> s_pslExceptions;
     static inline QMutex s_pslMutex;
     static inline bool s_pslLoaded = false;
+    static inline QHash<QString, QString> s_regCache;
+    static inline QMutex s_regCacheMutex;
 
     static bool isSafeCosmeticSelector(const QString &selector);
 

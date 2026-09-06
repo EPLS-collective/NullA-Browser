@@ -29,10 +29,13 @@ void Interceptor::addBlockedDomain(const QString &domain, const std::optional<Fi
 void Interceptor::addBlockedPattern(const QString &pattern, const std::optional<FilterRule> &rule) {
     QMutexLocker locker(&mutex);
     std::u16string key = pattern.toLower().trimmed().toStdU16String();
+    const std::u16string token = firstToken(key);
     if (!rule.has_value() || rule->isTrivial()) {
-        blockedPatterns.push_back(key);
+        m_patternIndex[token].push_back(static_cast<uint32_t>(blockedPatterns.size()));
+        blockedPatterns.push_back(std::move(key));
     } else {
-        restrictedBlockedPatterns.push_back({key, *rule});
+        m_restrictedPatternIndex[token].push_back(static_cast<uint32_t>(restrictedBlockedPatterns.size()));
+        restrictedBlockedPatterns.push_back({std::move(key), *rule});
     }
 }
 
@@ -190,58 +193,75 @@ void Interceptor::loadPublicSuffixData(const QByteArray &data) {
 
 QString Interceptor::registrableDomain(const QString &host) {
     if (host.isEmpty()) return host;
+
+    {
+        QMutexLocker cacheLock(&s_regCacheMutex);
+        auto it = s_regCache.constFind(host);
+        if (it != s_regCache.cend()) return it.value();
+    }
+
     const QString lower = host.toLower();
     {
         QHostAddress addr;
         if (addr.setAddress(lower)) return lower;
     }
 
-    QMutexLocker locker(&s_pslMutex);
+    QString result;
+    {
+        QMutexLocker locker(&s_pslMutex);
 
-    // If PSL hasn't downloaded/filled yet, see the old 2-tagged fallback[cite: 7]
-    if (!s_pslLoaded) {
-        const QStringList labels = lower.split(QLatin1Char('.'), Qt::SkipEmptyParts);
-        if (labels.size() <= 2) return lower;
-        return labels.mid(labels.size() - 2).join(QLatin1Char('.'));
-    }
+        // If PSL hasn't downloaded/filled yet, see the old 2-tagged fallback[cite: 7]
+        if (!s_pslLoaded) {
+            const QStringList labels = lower.split(QLatin1Char('.'), Qt::SkipEmptyParts);
+            if (labels.size() <= 2) result = lower;
+            else result = labels.mid(labels.size() - 2).join(QLatin1Char('.'));
+        } else {
+            QStringList parts = lower.split('.', Qt::SkipEmptyParts);
+            QString suffix;
 
-    QStringList parts = lower.split('.', Qt::SkipEmptyParts);
-    QString suffix;
-
-    for (int i = 0; i < parts.size(); ++i) {
-        QString sub = parts.mid(i).join('.');
-        if (s_pslExceptions.contains(sub)) {
-            suffix = parts.mid(i + 1).join('.');
-            break;
-        }
-    }
-
-    if (suffix.isEmpty()) {
-        for (int i = 0; i < parts.size(); ++i) {
-            QString sub = parts.mid(i).join('.');
-            if (s_pslRules.contains(sub)) {
-                suffix = sub;
-                break;
-            }
-            if (i > 0) {
-                QString wildcardSub = "*." + parts.mid(i).join('.');
-                if (s_pslRules.contains(wildcardSub)) {
-                    suffix = parts.mid(i - 1).join('.');
+            for (int i = 0; i < parts.size(); ++i) {
+                QString sub = parts.mid(i).join('.');
+                if (s_pslExceptions.contains(sub)) {
+                    suffix = parts.mid(i + 1).join('.');
                     break;
                 }
             }
+
+            if (suffix.isEmpty()) {
+                for (int i = 0; i < parts.size(); ++i) {
+                    QString sub = parts.mid(i).join('.');
+                    if (s_pslRules.contains(sub)) {
+                        suffix = sub;
+                        break;
+                    }
+                    if (i > 0) {
+                        QString wildcardSub = "*." + parts.mid(i).join('.');
+                        if (s_pslRules.contains(wildcardSub)) {
+                            suffix = parts.mid(i - 1).join('.');
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (suffix.isEmpty()) suffix = parts.last();
+            if (suffix == lower) result = lower;
+            else {
+                // Finding eTLD+1 (Include the tag preceding the suffix)
+                QString prefix = lower.left(lower.length() - suffix.length() - 1);
+                QStringList prefixLabels = prefix.split('.', Qt::SkipEmptyParts);
+                if (prefixLabels.isEmpty()) result = lower;
+                else result = prefixLabels.last() + QLatin1Char('.') + suffix;
+            }
         }
     }
 
-    if (suffix.isEmpty()) suffix = parts.last();
-    if (suffix == lower) return lower;
-
-    // Finding eTLD+1 (Include the tag preceding the suffix)
-    QString prefix = lower.left(lower.length() - suffix.length() - 1);
-    QStringList prefixLabels = prefix.split('.', Qt::SkipEmptyParts);
-    if (prefixLabels.isEmpty()) return lower;
-
-    return prefixLabels.last() + QLatin1Char('.') + suffix;
+    {
+        QMutexLocker cacheLock(&s_regCacheMutex);
+        if (s_regCache.size() >= 4096) s_regCache.clear();
+        s_regCache.insert(host, result);
+    }
+    return result;
 }
 
 bool Interceptor::restrictedDomainMatch(const std::unordered_map<std::u16string, std::vector<FilterRule>> &map,
@@ -275,31 +295,10 @@ bool Interceptor::restrictedDomainMatch(const std::unordered_map<std::u16string,
     return false;
 }
 
-bool Interceptor::restrictedPatternMatch(const std::vector<PatternRule> &patterns,
-                                          std::u16string_view combinedView, uint32_t category, bool thirdParty, uint16_t method,
-                                          const QString &firstPartyHost) const {
+bool Interceptor::hasImportantMatch(std::u16string_view hostView, std::u16string_view combinedView,
+                                     uint32_t category, bool thirdParty, uint16_t method,
+                                     const QString &firstPartyHost) const {
     // caller must hold "mutex"
-    for (const auto &pr : patterns) {
-        if (!pr.rule.matchesResource(category)) continue;
-        if (!pr.rule.matchesThirdParty(thirdParty)) continue;
-        if (!pr.rule.matchesMethod(method)) continue;
-        if (!pr.rule.domainExcludes.empty() && domainMatchesAny(firstPartyHost, pr.rule.domainExcludes)) continue;
-        if (!pr.rule.domainIncludes.empty() && !domainMatchesAny(firstPartyHost, pr.rule.domainIncludes)) continue;
-
-        bool hit = pr.pattern.find(u'*') != std::u16string::npos
-            ? wildcardMatch(combinedView, std::u16string_view(pr.pattern))
-            : combinedView.find(std::u16string_view(pr.pattern)) != std::u16string_view::npos;
-        if (hit) return true;
-    }
-    return false;
-}
-
-bool Interceptor::hasImportantBlockMatch(const QString &host, uint32_t category, bool thirdParty, uint16_t method,
-                                          const QString &firstPartyHost, const QString &path) const {
-    // caller must hold "mutex"
-    QString lowerHost = host.toLower();
-    std::u16string_view hostView(reinterpret_cast<const char16_t*>(lowerHost.utf16()), lowerHost.size());
-
     auto matches = [&](const FilterRule &rule) -> bool {
         if (!rule.important) return false;
         if (!rule.matchesResource(category)) return false;
@@ -326,16 +325,122 @@ bool Interceptor::hasImportantBlockMatch(const QString &host, uint32_t category,
         if (checkAt(hostView.substr(index))) return true;
     }
 
-    QString combined = (host + path).toLower();
-    std::u16string_view view(reinterpret_cast<const char16_t*>(combined.utf16()), combined.size());
-    for (const auto &pr : restrictedBlockedPatterns) {
-        if (!matches(pr.rule)) continue;
-        bool hit = pr.pattern.find(u'*') != std::u16string::npos
-            ? wildcardMatch(view, std::u16string_view(pr.pattern))
-            : view.find(std::u16string_view(pr.pattern)) != std::u16string_view::npos;
-        if (hit) return true;
+    return matchBlockingPatterns(combinedView, category, thirdParty, method, firstPartyHost, true);
+}
+
+bool Interceptor::checkDomainSet(const std::unordered_set<std::u16string> &set, std::u16string_view hostView) {
+    if (set.empty() || hostView.empty()) return false;
+    if (set.count(std::u16string(hostView))) return true;
+    size_t index = 0;
+    while ((index = hostView.find(u'.', index)) != std::u16string_view::npos) {
+        index++;
+        if (set.count(std::u16string(hostView.substr(index)))) return true;
     }
     return false;
+}
+
+std::u16string Interceptor::firstToken(std::u16string_view pattern) {
+    const size_t len = pattern.size();
+    size_t i = 0;
+    while (i < len) {
+        char16_t c = pattern[i];
+        const bool word = (c >= u'a' && c <= u'z') || (c >= u'A' && c <= u'Z') || (c >= u'0' && c <= u'9');
+        if (word) {
+            const size_t start = i;
+            while (i < len) {
+                char16_t d = pattern[i];
+                if ((d >= u'a' && d <= u'z') || (d >= u'A' && d <= u'Z') || (d >= u'0' && d <= u'9')) ++i;
+                else break;
+            }
+            return std::u16string(pattern.substr(start, i - start));
+        }
+        ++i;
+    }
+    return std::u16string(u"*");
+}
+
+void Interceptor::collectUrlTokens(std::u16string_view combined, std::vector<std::u16string> &out) {
+    const size_t len = combined.size();
+    const size_t kMaxTokens = 192;
+    size_t i = 0;
+    while (i < len && out.size() < kMaxTokens) {
+        char16_t c = combined[i];
+        const bool word = (c >= u'a' && c <= u'z') || (c >= u'0' && c <= u'9');
+        if (!word) { ++i; continue; }
+        const size_t start = i;
+        while (i < len) {
+            char16_t d = combined[i];
+            if ((d >= u'a' && d <= u'z') || (d >= u'0' && d <= u'9')) ++i;
+            else break;
+        }
+        const size_t runLen = i - start;
+        if (runLen <= 128) out.emplace_back(combined.substr(start, runLen));
+    }
+}
+
+bool Interceptor::matchBlockingPatterns(std::u16string_view combinedView, uint32_t category, bool thirdParty,
+                                        uint16_t method, const QString &firstPartyHost, bool onlyImportant) const {
+    // caller must hold "mutex"
+    std::vector<std::u16string> tokens;
+    collectUrlTokens(combinedView, tokens);
+
+    for (const auto &tok : tokens) {
+        if (!onlyImportant) {
+            auto it = m_patternIndex.find(tok);
+            if (it != m_patternIndex.end()) {
+                for (uint32_t idx : it->second) {
+                    const std::u16string &pat = blockedPatterns[idx];
+                    const bool hit = pat.find(u'*') != std::u16string::npos
+                        ? wildcardMatch(combinedView, pat)
+                        : combinedView.find(pat) != std::u16string_view::npos;
+                    if (hit) return true;
+                }
+            }
+        }
+
+        auto rit = m_restrictedPatternIndex.find(tok);
+        if (rit == m_restrictedPatternIndex.end()) continue;
+        for (uint32_t idx : rit->second) {
+            const PatternRule &pr = restrictedBlockedPatterns[idx];
+            if (onlyImportant && !pr.rule.important) continue;
+            if (!pr.rule.matchesResource(category)) continue;
+            if (!pr.rule.matchesThirdParty(thirdParty)) continue;
+            if (!pr.rule.matchesMethod(method)) continue;
+            if (!pr.rule.domainExcludes.empty() && domainMatchesAny(firstPartyHost, pr.rule.domainExcludes)) continue;
+            if (!pr.rule.domainIncludes.empty() && !domainMatchesAny(firstPartyHost, pr.rule.domainIncludes)) continue;
+
+            const bool hit = pr.pattern.find(u'*') != std::u16string::npos
+                ? wildcardMatch(combinedView, std::u16string_view(pr.pattern))
+                : combinedView.find(std::u16string_view(pr.pattern)) != std::u16string_view::npos;
+            if (hit) return true;
+        }
+    }
+    return false;
+}
+
+bool Interceptor::isAllowedInternal(std::u16string_view hostView, const QString &lowerPath, const QString &lowerHost,
+                                    uint32_t category, bool thirdParty, uint16_t method,
+                                    const QString &firstPartyHost) const {
+    // caller must hold "mutex"
+    auto checkDomain = [&](std::u16string_view suffix) -> bool {
+        const std::u16string domainKey(suffix);
+        if (allowedDomains.count(domainKey)) return true;
+        auto it = allowedDomainPaths.find(domainKey);
+        if (it == allowedDomainPaths.end()) return false;
+        for (const auto &allowedPath : it->second) {
+            if (lowerPath == QString::fromStdU16String(allowedPath)) return true;
+        }
+        return false;
+    };
+
+    if (checkDomain(hostView)) return true;
+    size_t index = 0;
+    while ((index = hostView.find(u'.', index)) != std::u16string_view::npos) {
+        index++;
+        if (checkDomain(hostView.substr(index))) return true;
+    }
+
+    return restrictedDomainMatch(restrictedAllowedDomains, lowerHost, category, thirdParty, method, firstPartyHost);
 }
 
 uint32_t Interceptor::categoryForResourceType(int resourceType) {
@@ -513,41 +618,54 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
     const uint32_t category = categoryForResourceType(static_cast<int>(info.resourceType()));
     const uint16_t method = methodForString(info.requestMethod());
 
-    {
-        QMutexLocker locker(&mutex);
+    const QString lowerHost = host.toLower();
+    std::u16string_view hostView(reinterpret_cast<const char16_t*>(lowerHost.utf16()), lowerHost.size());
+    const QString lowerPath = requestUrl.path().toLower();
 
-        // $important block rules always win, even over an allow rule.
-        if (hasImportantBlockMatch(host, category, thirdParty, method, firstPartyHost, requestUrl.path())) {
-            info.block(true);
-            #ifdef DEBUG_MODE
-            qDebug() << "Blocked (important):" << host << requestUrl.path();
-            #endif
-            return;
-        }
+    QString combined = lowerHost + lowerPath;
+    std::u16string_view combinedView(reinterpret_cast<const char16_t*>(combined.utf16()), combined.size());
 
-        // allow rules only win for the resource type they declare
-        if (allowedDomains.find(host.toLower().toStdU16String()) != allowedDomains.end())
-            return;
-        if (restrictedDomainMatch(restrictedAllowedDomains, host, category, thirdParty, method, firstPartyHost))
-            return;
-    }
-    if (isAllowed(host, requestUrl.path())) return;
+    QMutexLocker locker(&mutex);
 
-    bool blocked = false;
-    {
-        QMutexLocker locker(&mutex);
-        blocked = restrictedDomainMatch(restrictedBlockedDomains, host, category, thirdParty, method, firstPartyHost);
-        if (!blocked) {
-            QString combined = (host + requestUrl.path()).toLower();
-            std::u16string_view view(reinterpret_cast<const char16_t*>(combined.utf16()), combined.size());
-            blocked = restrictedPatternMatch(restrictedBlockedPatterns, view, category, thirdParty, method, firstPartyHost);
-        }
-    }
-    blocked = blocked || isBlocked(host) || isBlockedPath(host, requestUrl.path());
-
-    if (blocked) {
+    if (hasImportantMatch(hostView, combinedView, category, thirdParty, method, firstPartyHost)) {
         info.block(true);
+        #ifdef DEBUG_MODE
+        qDebug() << "Blocked (important):" << host << requestUrl.path();
+        #endif
+        return;
+    }
 
+    if (isAllowedInternal(hostView, lowerPath, lowerHost, category, thirdParty, method, firstPartyHost))
+        return;
+
+    if (restrictedDomainMatch(restrictedBlockedDomains, lowerHost, category, thirdParty, method, firstPartyHost)) {
+        info.block(true);
+        #ifdef DEBUG_MODE
+        qDebug()
+        << "Blocked:" << host << requestUrl.path()
+        << "Type:" << info.resourceType()
+        << "Category:" << category
+        << "3rdParty:" << thirdParty
+        << "Method:" << info.requestMethod();
+        #endif
+        return;
+    }
+
+    if (checkDomainSet(blockedDomains, hostView)) {
+        info.block(true);
+        #ifdef DEBUG_MODE
+        qDebug()
+        << "Blocked:" << host << requestUrl.path()
+        << "Type:" << info.resourceType()
+        << "Category:" << category
+        << "3rdParty:" << thirdParty
+        << "Method:" << info.requestMethod();
+        #endif
+        return;
+    }
+
+    if (matchBlockingPatterns(combinedView, category, thirdParty, method, firstPartyHost, false)) {
+        info.block(true);
         #ifdef DEBUG_MODE
         qDebug()
         << "Blocked:" << host << requestUrl.path()

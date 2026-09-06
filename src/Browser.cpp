@@ -1082,6 +1082,17 @@ void Browser::applyTheme(int themeIndex) {
 }
 
 void Browser::refreshCosmeticGenericScript() {
+    // gets called once per list (cache + network + local-filters.txt), so on
+    // startup this fires like 10 times back to back, debounce it.
+    if (m_cosmeticRefreshPending) return;
+    m_cosmeticRefreshPending = true;
+    QTimer::singleShot(300, this, [this]() {
+        m_cosmeticRefreshPending = false;
+        doRefreshCosmeticGenericScript();
+    });
+}
+
+void Browser::doRefreshCosmeticGenericScript() {
     const QString css = adBlocker->genericCosmeticCss();
     QString escaped = css;
     escaped.replace('\\', "\\\\").replace('`', "\\`").replace("${", "\\${");
@@ -1118,7 +1129,7 @@ void Browser::refreshCosmeticGenericScript() {
     script.setName("cosmeticGeneric");
     script.setInjectionPoint(QWebEngineScript::DocumentCreation);
     script.setWorldId(QWebEngineScript::MainWorld);
-    script.setRunsOnSubFrames(true);
+    script.setRunsOnSubFrames(false);
     script.setSourceCode(jsBody);
     scripts->insert(script);
 
@@ -1171,7 +1182,7 @@ void Browser::applyCosmeticFiltersForPage(TabPage* page, const QString &host) {
         script.setName("cosmeticDomain");
         script.setInjectionPoint(QWebEngineScript::DocumentCreation);
         script.setWorldId(QWebEngineScript::MainWorld);
-        script.setRunsOnSubFrames(true);
+        script.setRunsOnSubFrames(false);
         script.setSourceCode(jsBody);
         pageScripts.insert(script);
     }
@@ -2016,7 +2027,7 @@ void Browser::setAdBlockEnabled(bool enabled) {
                 QWebEngineScript ytAB;
                 ytAB.setName("ytAdBlock");
                 ytAB.setInjectionPoint(QWebEngineScript::DocumentCreation);
-                ytAB.setRunsOnSubFrames(true);
+                ytAB.setRunsOnSubFrames(false);
                 ytAB.setWorldId(QWebEngineScript::MainWorld);
                 ytAB.setSourceCode(QString::fromUtf8(scriptCode));
 
@@ -2028,6 +2039,34 @@ void Browser::setAdBlockEnabled(bool enabled) {
             profile->scripts()->remove(s);
         }
     }
+    if (enabled) {
+        doRefreshCosmeticGenericScript();
+    } else {
+        const QList<QWebEngineScript> genericCosmetic = profile->scripts()->find("cosmeticGeneric");
+        for (const QWebEngineScript &s : genericCosmetic) profile->scripts()->remove(s);
+    }
+
+    // Constructor calls this before tabWidget exists yet (initial load of
+    // the saved adBlockEnabled setting) nothing to sync to at that point.
+    if (!tabWidget) return;
+
+    for (int i = 0; i < tabWidget->count(); ++i) {
+        TabPage* p = qobject_cast<TabPage*>(tabWidget->widget(i));
+        if (!p || !p->webView() || !p->webView()->page()) continue;
+        QWebEnginePage* webPage = p->webView()->page();
+
+        if (!enabled) {
+            const QList<QWebEngineScript> domainCosmetic = webPage->scripts().find("cosmeticDomain");
+            for (const QWebEngineScript &s : domainCosmetic) webPage->scripts().remove(s);
+
+            webPage->runJavaScript(
+                "document.getElementById('cosmeticGeneric')?.remove();"
+                "document.getElementById('cosmeticDomain')?.remove();"
+            );
+        } else {
+            applyCosmeticFiltersForPage(p, p->currentUrl().host());
+        }
+    }
 }
 
 void Browser::showSettings() {
@@ -2035,7 +2074,7 @@ void Browser::showSettings() {
 
     connect(dialog, &SettingsDialog::cookieDeleted, this, &Browser::deleteCookie);
     connect(dialog, &SettingsDialog::adBlockToggled, this, [this](bool enabled){
-        adBlocker->setEnabled(enabled);
+        setAdBlockEnabled(enabled);
     });
 
     dialog->setUpdateDownloadUrl(m_pendingUpdateDownloadUrl, m_pendingUpdateVersion);

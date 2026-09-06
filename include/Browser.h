@@ -84,18 +84,18 @@ private:
 
     DownloadManager* m_downloadManager;
 
-    TabWidget* tabWidget;
-    QLineEdit* urlBar;
-    QToolBar* toolbar;
-    QWebEngineProfile* profile;
-    Interceptor* adBlocker;
-    QPushButton* plusButton;
-    QSettings* settings;
-    QListWidget* suggestionList;
+    TabWidget* tabWidget = nullptr;
+    QLineEdit* urlBar = nullptr;
+    QToolBar* toolbar = nullptr;
+    QWebEngineProfile* profile = nullptr;
+    Interceptor* adBlocker = nullptr;
+    QPushButton* plusButton = nullptr;
+    QSettings* settings = nullptr;
+    QListWidget* suggestionList = nullptr;
     QList<QPair<QString, QString>> bookmarks;
     bool maydayActive = false;
-    QMediaPlayer* maydayPlayer;
-    QAudioOutput* maydayAudio;
+    QMediaPlayer* maydayPlayer = nullptr;
+    QAudioOutput* maydayAudio = nullptr;
 
     QList<QNetworkCookie> cookieCache;
 
@@ -107,7 +107,7 @@ private:
 
     QPushButton* favoriteButton = nullptr;
     void updateFavoriteButtonStyle();
-    QMenu* bookmarkContextMenu;
+    QMenu* bookmarkContextMenu = nullptr;
     void showBookmarkContextMenu(const QPoint& pos);
     void removeBookmark(const QString& url);
 
@@ -133,6 +133,7 @@ private:
     void setAdBlockEnabled(bool enabled);
 
     void refreshCosmeticGenericScript();
+    void doRefreshCosmeticGenericScript();
     void applyCosmeticFiltersForPage(TabPage* page, const QString &host);
 
     void loadExtensionScripts(const QString &extId);
@@ -148,6 +149,8 @@ private:
 
     QHash<QString, QStringList> m_extensionScriptNames;
     QHash<QString, QWebEnginePage*> m_backgroundPages;
+
+    bool m_cosmeticRefreshPending = false;
 };
 
 #endif // BROWSER_H
