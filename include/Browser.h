@@ -34,6 +34,7 @@
 #include <QHash>
 #include <QWebEnginePage>
 #include <QJsonObject>
+#include <QLabel>
 
 class Interceptor;
 
@@ -113,6 +114,9 @@ private:
     void removeBookmark(const QString& url);
 
     RenderController* renderController = nullptr;
+
+    QLabel* m_hoverOverlay = nullptr;
+    void positionHoverOverlay(QWebEngineView* view);
 
     UpdateChecker* m_updateChecker = nullptr;
     QTimer* updateCheckTimer = nullptr;

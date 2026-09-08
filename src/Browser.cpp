@@ -714,6 +714,15 @@ Browser::Browser(const QString &initialUrl) {
     }
 
     int savedTheme = settings->value("theme", initialTheme).toInt();
+
+    // Overlay for link hover URLs; no layout shift on show/hide
+    m_hoverOverlay = new QLabel(this);
+    m_hoverOverlay->setFont(QFont("Courier New", 9));
+    m_hoverOverlay->setWordWrap(false);
+    m_hoverOverlay->setTextInteractionFlags(Qt::NoTextInteraction);
+    m_hoverOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_hoverOverlay->hide();
+
     applyTheme(savedTheme);
 
     // Keyboard shortcuts
@@ -880,6 +889,13 @@ void Browser::applyTheme(int themeIndex) {
     }
 
     qApp->setPalette(palette);
+
+    // Hover URL overlay follows the active theme
+    if (m_hoverOverlay) {
+        m_hoverOverlay->setStyleSheet(isDark
+            ? "background-color: rgba(28, 28, 28, 200); color: #e6e6e6; padding: 2px 6px;"
+            : "background-color: rgba(245, 245, 245, 220); color: #323232; padding: 2px 6px;");
+    }
 
     // Toolbar
     toolbar->setStyleSheet(QString(R"(
@@ -1640,20 +1656,15 @@ void Browser::addNewTab() {
         }
     });
 
-    connect(page->webView()->page(), &QWebEnginePage::linkHovered, this, [this](const QString &url) {
+    connect(page->webView()->page(), &QWebEnginePage::linkHovered, this, [this, page](const QString &url) {
         if (url.isEmpty()) {
-            statusBar()->clearMessage();
-
-            if (m_downloadManager->activeCount() > 0) {
-                updateStatusBarContent();
-            } else {
-                statusBar()->hide();
-            }
+            m_hoverOverlay->hide();
         } else {
             if (!isWaitingForCancelInput) {
-                statusBar()->setFont(QFont("Courier New", 9));
-                statusBar()->show();
-                statusBar()->showMessage(url);
+                positionHoverOverlay(page->webView());
+                m_hoverOverlay->setText(url);
+                m_hoverOverlay->raise();
+                m_hoverOverlay->show();
             }
         }
     });
@@ -1853,6 +1864,12 @@ void Browser::resizeEvent(QResizeEvent* e) {
         suggestionList->setFixedWidth(urlBar->width());
         suggestionList->move(urlBar->mapToGlobal(QPoint(0, urlBar->height())));
     }
+
+    if (m_hoverOverlay && m_hoverOverlay->isVisible()) {
+        if (auto* p = currentTabPage()) {
+            positionHoverOverlay(p->webView());
+        }
+    }
 }
 
 void Browser::moveEvent(QMoveEvent *event) {
@@ -1861,6 +1878,13 @@ void Browser::moveEvent(QMoveEvent *event) {
     if (suggestionList && suggestionList->isVisible() && urlBar) {
         suggestionList->move(urlBar->mapToGlobal(QPoint(0, urlBar->height())));
     }
+}
+
+void Browser::positionHoverOverlay(QWebEngineView* view) {
+    if (!m_hoverOverlay || !view) return;
+    int h = m_hoverOverlay->sizeHint().height();
+    QPoint topLeft = view->mapTo(this, QPoint(0, view->height() - h));
+    m_hoverOverlay->setGeometry(topLeft.x(), topLeft.y(), view->width(), h);
 }
 
 void Browser::showEvent(QShowEvent* e) {
