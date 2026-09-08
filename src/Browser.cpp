@@ -85,6 +85,12 @@ Browser::Browser(const QString &initialUrl) {
 
     auto *store = profile->cookieStore();
 
+    // Debounce cookie persistence to avoid heavy disk I/O on burst updates
+    m_cookieSaveTimer = new QTimer(this);
+    m_cookieSaveTimer->setSingleShot(true);
+    m_cookieSaveTimer->setInterval(2000);
+    connect(m_cookieSaveTimer, &QTimer::timeout, this, &Browser::saveCookiesToJson);
+
     // In-memory cookie management and manual persistence
     connect(store, &QWebEngineCookieStore::cookieAdded, this, [this](const QNetworkCookie &cookie) {
 
@@ -95,7 +101,7 @@ Browser::Browser(const QString &initialUrl) {
         qDebug() << "Saved cookie:" << cookie.name();
         #endif
 
-        saveCookiesToJson();
+        m_cookieSaveTimer->start();
     });
 
     connect(store, &QWebEngineCookieStore::cookieRemoved, this, [this](const QNetworkCookie &cookie) {
@@ -106,7 +112,7 @@ Browser::Browser(const QString &initialUrl) {
         qDebug() << "Removed cookie:" << cookie.name();
         #endif
 
-        saveCookiesToJson();
+        m_cookieSaveTimer->start();
     });
 
     // Dynamic User-Agent fetching to match the latest stable Chrome version
@@ -640,6 +646,18 @@ Browser::Browser(const QString &initialUrl) {
                 });
             }
         }
+
+        connect(bar, &TabBar::reloadTabRequested, this, [this](int index) {
+            if (TabPage* page = qobject_cast<TabPage*>(tabWidget->widget(index))) {
+                page->webView()->reload();
+            }
+        });
+
+        connect(bar, &TabBar::muteTabRequested, this, [this](int index, bool shouldMute) {
+            if (TabPage* page = qobject_cast<TabPage*>(tabWidget->widget(index))) {
+                page->webView()->page()->setAudioMuted(shouldMute);
+            }
+        });
     }
 
     // Search engine and initial state setup
@@ -1541,18 +1559,6 @@ void Browser::addNewTab() {
 
     TabBar* bar = qobject_cast<TabBar*>(tabWidget->tabBar());
     if (bar) {
-        connect(bar, &TabBar::reloadTabRequested, this, [this](int index) {
-            if (TabPage* page = qobject_cast<TabPage*>(tabWidget->widget(index))) {
-                page->webView()->reload();
-            }
-        });
-
-        connect(bar, &TabBar::muteTabRequested, this, [this](int index, bool shouldMute) {
-            if (TabPage* page = qobject_cast<TabPage*>(tabWidget->widget(index))) {
-                page->webView()->page()->setAudioMuted(shouldMute);
-            }
-        });
-
         bar->setElideMode(Qt::ElideRight);
     }
 
@@ -1861,68 +1867,67 @@ bool Browser::eventFilter(QObject* obj, QEvent* ev) {
     if (ev->type() == QEvent::ToolTip)
         return true;
 
-    if (ev->type() == QEvent::MouseButtonPress) {
+    // Dismiss suggestion list on outside click
+    if (ev->type() == QEvent::MouseButtonPress && suggestionList && suggestionList->isVisible()) {
         QMouseEvent* me = static_cast<QMouseEvent*>(ev);
         QPoint globalPos = me->globalPosition().toPoint();
+        QWidget* clicked = QApplication::widgetAt(globalPos);
 
-        if (suggestionList && suggestionList->isVisible()) {
-            QWidget* clicked = QApplication::widgetAt(globalPos);
+        bool clickedInsideSuggestion =
+        clicked == suggestionList ||
+        suggestionList->isAncestorOf(clicked);
 
-            bool clickedInsideSuggestion =
-            clicked == suggestionList ||
-            suggestionList->isAncestorOf(clicked);
+        bool clickedUrlBar =
+        clicked == urlBar || urlBar->isAncestorOf(clicked);
 
-            bool clickedUrlBar =
-            clicked == urlBar || urlBar->isAncestorOf(clicked);
-
-            if (!clickedInsideSuggestion && !clickedUrlBar) {
-                suggestionList->hide();
-            }
+        if (!clickedInsideSuggestion && !clickedUrlBar) {
+            suggestionList->hide();
         }
     }
 
-    if (obj == urlBar) {
-        if (ev->type() == QEvent::FocusIn) {
-            if (!urlBar->text().isEmpty()) {
-                updateSuggestions(urlBar->text());
-            }
+    if (obj != urlBar)
+        return QMainWindow::eventFilter(obj, ev);
+
+    if (ev->type() == QEvent::FocusIn) {
+        if (!urlBar->text().isEmpty()) {
+            updateSuggestions(urlBar->text());
         }
+    }
 
-        if (ev->type() == QEvent::KeyPress) {
-            QKeyEvent* ke = static_cast<QKeyEvent*>(ev);
+    if (ev->type() == QEvent::KeyPress) {
+        QKeyEvent* ke = static_cast<QKeyEvent*>(ev);
 
-            if (suggestionList && suggestionList->isVisible() && suggestionList->count() > 0) {
-                int currentRow = suggestionList->currentRow();
+        if (suggestionList && suggestionList->isVisible() && suggestionList->count() > 0) {
+            int currentRow = suggestionList->currentRow();
 
-                if (ke->key() == Qt::Key_Down) {
-                    int nextRow = (currentRow + 1) % suggestionList->count();
-                    suggestionList->setCurrentRow(nextRow);
-                    return true;
-                }
+            if (ke->key() == Qt::Key_Down) {
+                int nextRow = (currentRow + 1) % suggestionList->count();
+                suggestionList->setCurrentRow(nextRow);
+                return true;
+            }
 
-                if (ke->key() == Qt::Key_Up) {
-                    int prevRow = (currentRow <= 0) ? suggestionList->count() - 1 : currentRow - 1;
-                    suggestionList->setCurrentRow(prevRow);
-                    return true;
-                }
+            if (ke->key() == Qt::Key_Up) {
+                int prevRow = (currentRow <= 0) ? suggestionList->count() - 1 : currentRow - 1;
+                suggestionList->setCurrentRow(prevRow);
+                return true;
+            }
 
-                if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
-                    QListWidgetItem* item = suggestionList->currentItem();
-                    if (item) {
-                        QString url = item->data(Qt::UserRole).toString();
-                        urlBar->setText(url);
-                        handleUrlBarSubmit();
-                        suggestionList->hide();
-                        suggestionList->setCurrentRow(-1);
-                        return true;
-                    }
-                }
-
-                if (ke->key() == Qt::Key_Escape) {
+            if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
+                QListWidgetItem* item = suggestionList->currentItem();
+                if (item) {
+                    QString url = item->data(Qt::UserRole).toString();
+                    urlBar->setText(url);
+                    handleUrlBarSubmit();
                     suggestionList->hide();
                     suggestionList->setCurrentRow(-1);
                     return true;
                 }
+            }
+
+            if (ke->key() == Qt::Key_Escape) {
+                suggestionList->hide();
+                suggestionList->setCurrentRow(-1);
+                return true;
             }
         }
     }

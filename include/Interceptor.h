@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <QMutex>
+#include <QReadWriteLock>
 #include <QSet>
 #include <QHash>
 
@@ -163,7 +164,7 @@ private:
     std::unordered_map<std::u16string, std::vector<uint32_t>> m_restrictedPatternIndex;
 
     static bool wildcardMatch(std::u16string_view text, std::u16string_view pattern);
-    mutable QMutex mutex;
+    mutable QReadWriteLock mutex;
     bool m_enabled = true;
 
     static inline QSet<QString> s_pslRules;
@@ -179,7 +180,7 @@ private:
     std::unordered_map<std::u16string, std::unordered_set<std::u16string>> cosmeticExceptionsByDomain;
     std::vector<std::u16string> cosmeticGenericSelectors;
     std::unordered_set<std::u16string> cosmeticGenericExceptions;
-    mutable QMutex cosmeticMutex;
+    mutable QReadWriteLock cosmeticMutex;
 };
 
 #endif // INTERCEPTOR_H

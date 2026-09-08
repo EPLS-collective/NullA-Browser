@@ -17,7 +17,7 @@ Interceptor::Interceptor(QObject* parent)
 }
 
 void Interceptor::addBlockedDomain(const QString &domain, const std::optional<FilterRule> &rule) {
-    QMutexLocker locker(&mutex);
+    QWriteLocker locker(&mutex);
     std::u16string key = domain.toLower().trimmed().toStdU16String();
     if (!rule.has_value() || rule->isTrivial()) {
         blockedDomains.insert(key);
@@ -27,7 +27,7 @@ void Interceptor::addBlockedDomain(const QString &domain, const std::optional<Fi
 }
 
 void Interceptor::addBlockedPattern(const QString &pattern, const std::optional<FilterRule> &rule) {
-    QMutexLocker locker(&mutex);
+    QWriteLocker locker(&mutex);
     std::u16string key = pattern.toLower().trimmed().toStdU16String();
     const std::u16string token = firstToken(key);
     if (!rule.has_value() || rule->isTrivial()) {
@@ -40,7 +40,7 @@ void Interceptor::addBlockedPattern(const QString &pattern, const std::optional<
 }
 
 void Interceptor::addAllowedDomain(const QString &domain, const std::optional<FilterRule> &rule) {
-    QMutexLocker locker(&mutex);
+    QWriteLocker locker(&mutex);
     std::u16string key = domain.toLower().trimmed().toStdU16String();
     if (!rule.has_value() || rule->isTrivial()) {
         allowedDomains.insert(key);
@@ -50,7 +50,7 @@ void Interceptor::addAllowedDomain(const QString &domain, const std::optional<Fi
 }
 
 void Interceptor::addAllowedDomain(const QString &domain, const QString &path) {
-    QMutexLocker locker(&mutex);
+    QWriteLocker locker(&mutex);
 
     std::u16string domainKey = domain.toLower().trimmed().toStdU16String();
     std::u16string pathKey = path.toLower().trimmed().toStdU16String();
@@ -72,7 +72,7 @@ bool Interceptor::isBlocked(const QString &host) const {
 
     std::u16string_view hostView(reinterpret_cast<const char16_t*>(lowerHost.utf16()), lowerHost.size());
 
-    QMutexLocker locker(&mutex);
+    QReadLocker locker(&mutex);
 
     if (blockedDomains.find(std::u16string(hostView)) != blockedDomains.end()) return true;
 
@@ -100,7 +100,7 @@ bool Interceptor::isAllowed(const QString &host, const QString &path) const {
                                  lowerHost.size()
     );
 
-    QMutexLocker locker(&mutex);
+    QReadLocker locker(&mutex);
 
     auto checkDomain = [&](std::u16string_view domain) -> bool {
         const std::u16string domainKey(domain);
@@ -141,7 +141,7 @@ bool Interceptor::isBlockedPath(const QString &host, const QString &path) const 
     QString combined = (host + path).toLower();
     std::u16string_view view(reinterpret_cast<const char16_t*>(combined.utf16()), combined.size());
 
-    QMutexLocker locker(&mutex);
+    QReadLocker locker(&mutex);
     for (const auto &pattern : blockedPatterns) {
         bool hit = pattern.find(u'*') != std::u16string::npos
         ? wildcardMatch(view, std::u16string_view(pattern))
@@ -515,7 +515,7 @@ void Interceptor::addCosmeticRule(const QStringList &domains, const QString &sel
     const std::u16string sel = selector.trimmed().toStdU16String();
     if (sel.empty()) return;
 
-    QMutexLocker locker(&cosmeticMutex);
+    QWriteLocker locker(&cosmeticMutex);
 
     if (domains.isEmpty()) {
         if (isException) cosmeticGenericExceptions.insert(sel);
@@ -538,7 +538,7 @@ void Interceptor::addCosmeticRule(const QStringList &domains, const QString &sel
 }
 
 QString Interceptor::genericCosmeticCss() const {
-    QMutexLocker locker(&cosmeticMutex);
+    QReadLocker locker(&cosmeticMutex);
     if (cosmeticGenericSelectors.empty()) return QString();
 
     QStringList selectors;
@@ -559,7 +559,7 @@ QString Interceptor::cosmeticCssFor(const QString &host) const {
     const QString lowerHost = host.toLower();
     std::u16string_view hostView(reinterpret_cast<const char16_t*>(lowerHost.utf16()), lowerHost.size());
 
-    QMutexLocker locker(&cosmeticMutex);
+    QReadLocker locker(&cosmeticMutex);
 
     QSet<QString> exceptions;
     auto collectExceptionsAt = [&](std::u16string_view suffix) {
@@ -625,7 +625,7 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
     QString combined = lowerHost + lowerPath;
     std::u16string_view combinedView(reinterpret_cast<const char16_t*>(combined.utf16()), combined.size());
 
-    QMutexLocker locker(&mutex);
+    QReadLocker locker(&mutex);
 
     if (hasImportantMatch(hostView, combinedView, category, thirdParty, method, firstPartyHost)) {
         info.block(true);

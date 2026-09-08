@@ -98,6 +98,7 @@ private:
     QAudioOutput* maydayAudio = nullptr;
 
     QList<QNetworkCookie> cookieCache;
+    QTimer* m_cookieSaveTimer = nullptr;
 
     void saveCookiesToJson();
     void loadCookiesFromJson();
