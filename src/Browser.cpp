@@ -1821,6 +1821,11 @@ void Browser::closeEvent(QCloseEvent* event) {
     if(profile) {
         profile->clearAllVisitedLinks();
     }
+    // Flush pending debounced cookie save before shutting down
+    if (m_cookieSaveTimer && m_cookieSaveTimer->isActive()) {
+        m_cookieSaveTimer->stop();
+        saveCookiesToJson();
+    }
     QMainWindow::closeEvent(event);
 }
 

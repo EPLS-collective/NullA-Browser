@@ -173,7 +173,7 @@ bool Interceptor::domainMatchesAny(const QString &host, const std::vector<std::u
 }
 
 void Interceptor::loadPublicSuffixData(const QByteArray &data) {
-    QMutexLocker locker(&s_pslMutex);
+    QWriteLocker locker(&s_pslMutex);
     s_pslRules.clear();
     s_pslExceptions.clear();
 
@@ -195,7 +195,7 @@ QString Interceptor::registrableDomain(const QString &host) {
     if (host.isEmpty()) return host;
 
     {
-        QMutexLocker cacheLock(&s_regCacheMutex);
+        QReadLocker cacheLock(&s_regCacheMutex);
         auto it = s_regCache.constFind(host);
         if (it != s_regCache.cend()) return it.value();
     }
@@ -208,7 +208,7 @@ QString Interceptor::registrableDomain(const QString &host) {
 
     QString result;
     {
-        QMutexLocker locker(&s_pslMutex);
+        QReadLocker locker(&s_pslMutex);
 
         // If PSL hasn't downloaded/filled yet, see the old 2-tagged fallback[cite: 7]
         if (!s_pslLoaded) {
@@ -257,7 +257,7 @@ QString Interceptor::registrableDomain(const QString &host) {
     }
 
     {
-        QMutexLocker cacheLock(&s_regCacheMutex);
+        QWriteLocker cacheLock(&s_regCacheMutex);
         if (s_regCache.size() >= 4096) s_regCache.clear();
         s_regCache.insert(host, result);
     }

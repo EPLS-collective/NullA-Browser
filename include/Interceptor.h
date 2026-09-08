@@ -16,7 +16,6 @@
 #include <optional>
 #include <string>
 #include <vector>
-#include <QMutex>
 #include <QReadWriteLock>
 #include <QSet>
 #include <QHash>
@@ -169,10 +168,10 @@ private:
 
     static inline QSet<QString> s_pslRules;
     static inline QSet<QString> s_pslExceptions;
-    static inline QMutex s_pslMutex;
+    static inline QReadWriteLock s_pslMutex{};
     static inline bool s_pslLoaded = false;
     static inline QHash<QString, QString> s_regCache;
-    static inline QMutex s_regCacheMutex;
+    static inline QReadWriteLock s_regCacheMutex{};
 
     static bool isSafeCosmeticSelector(const QString &selector);
 
