@@ -38,6 +38,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <chrono>
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include <QDir>
@@ -1126,38 +1127,83 @@ void Browser::refreshCosmeticGenericScript() {
     });
 }
 
+// Takes the raw selector list and produces the page-side cosmetic engine.
+// Class/id/tag-only selectors go straight into an unconditional stylesheet
+// (Blink hashes those, cheap to match). Selectors with combinators/
+// attributes/pseudo-classes are probed against the live DOM once and only
+// the actually-matching ones get injected, so heavy sites don't carry a few
+// hundred unused complex selectors on every style recalc / resize. A slow
+// watchdog re-scans late DOM additions (SPA ads) for a while after load.
+static QString buildCosmeticEngine(const QStringList &selectors, const QString &styleId) {
+    return QString::fromLatin1(R"((function(){
+var all=%1;
+var STYLE="%2";
+if(!all||!all.length)return;
+var cheap=[],probe=[];
+for(var i=0;i<all.length;i++){
+    var s=all[i],cpx=false;
+    for(var j=0;j<s.length;j++){
+        var c=s.charCodeAt(j);
+        if(c===32||c===62||c===126||c===43||c===91||c===58){cpx=true;break;}
+    }
+    (cpx?probe:cheap).push(s);
+}
+function putStyle(idTag,text){
+    if(!document.getElementById)return;
+    var el=document.getElementById(idTag);
+    if(el)el.remove();
+    if(!text)return;
+    el=document.createElement("style");
+    el.id=idTag;
+    el.textContent=text;
+    var root=document.head||document.documentElement;
+    if(root)root.appendChild(el);
+}
+function listBlock(list){return ":where("+list.join(",\n")+"){display:none!important}";}
+if(cheap.length)putStyle(STYLE,listBlock(cheap));
+var matched=[],cursor=0;
+function putMatched(){
+    if(matched.length)putStyle(STYLE+"M",listBlock(matched));
+    else putStyle(STYLE+"M","");
+}
+function idleRun(fn){
+    if(window.requestIdleCallback)window.requestIdleCallback(fn,{timeout:300});
+    else setTimeout(fn,60);
+}
+function probeSome(){
+    var t0=Date.now();
+    while(cursor<probe.length&&Date.now()-t0<5){
+        var s=probe[cursor++];
+        try{if(document.querySelector(s)&&matched.indexOf(s)<0)matched.push(s);}catch(e){}
+    }
+    putMatched();
+    if(cursor<probe.length)idleRun(probeSome);
+}
+idleRun(probeSome);
+var quiet=0;
+function watchdog(){
+    var t0=Date.now(),changed=false;
+    for(var i=0;i<probe.length&&Date.now()-t0<5;i++){
+        var s=probe[i];
+        if(matched.indexOf(s)>=0)continue;
+        try{if(document.querySelector(s)){matched.push(s);changed=true;}}catch(e){}
+    }
+    if(changed){quiet=0;putMatched();}else quiet++;
+    if(quiet<40)setTimeout(watchdog,2000);
+}
+setTimeout(watchdog,1500);
+})();)")
+    .arg(QString::fromUtf8(QJsonDocument(QJsonArray::fromStringList(selectors)).toJson(QJsonDocument::Compact)), styleId);
+}
+
 void Browser::doRefreshCosmeticGenericScript() {
-    const QString css = adBlocker->genericCosmeticCss();
-    QString escaped = css;
-    escaped.replace('\\', "\\\\").replace('`', "\\`").replace("${", "\\${");
+    const QStringList selectors = adBlocker->genericCosmeticSelectors();
+    const QString jsBody = buildCosmeticEngine(selectors, "cosmeticGeneric");
 
     QWebEngineScriptCollection* scripts = profile->scripts();
     const QList<QWebEngineScript> existing = scripts->find("cosmeticGeneric");
     for (const QWebEngineScript &s : existing) scripts->remove(s);
-    if (css.isEmpty()) return;
-
-    const QString jsBody = QString(R"(
-        (function() {
-            function inject() {
-                var old = document.getElementById("cosmeticGeneric");
-                if (old) old.remove();
-                var style = document.createElement('style');
-                style.id = "cosmeticGeneric";
-                style.textContent = `%1`;
-                (document.head || document.documentElement).appendChild(style);
-            }
-            if (document.documentElement) {
-                inject();
-            } else {
-                new MutationObserver(function(_, observer) {
-                    if (document.documentElement) {
-                        observer.disconnect();
-                        inject();
-                    }
-                }).observe(document, { childList: true });
-            }
-        })();
-    )").arg(escaped);
+    if (selectors.isEmpty()) return;
 
     QWebEngineScript script;
     script.setName("cosmeticGeneric");
@@ -1178,40 +1224,37 @@ void Browser::applyCosmeticFiltersForPage(TabPage* page, const QString &host) {
     if (!page || !page->webView() || !page->webView()->page()) return;
     QWebEnginePage* webPage = page->webView()->page();
 
-    const QString css = adBlocker->isEnabled() ? adBlocker->cosmeticCssFor(host) : QString();
-    QString escaped = css;
-    escaped.replace('\\', "\\\\").replace('`', "\\`").replace("${", "\\${");
+#ifdef DEBUG_MODE
+    std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    static int s_cc = 0;
+    static long long s_cus = 0;
+    static long long s_cmax = 0;
+    const auto cssDone = [&]() {
+        long long us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
+        s_cc++;
+        s_cus += us;
+        if (us > s_cmax) s_cmax = us;
+        if (s_cc % 10 == 0) {
+            qDebug() << "[cosmetic] calls:" << s_cc
+                     << "avg_us:" << (int)(s_cus / qMax(1LL, s_cc))
+                     << "max_us:" << s_cmax;
+        }
+    };
+#endif
+
+    const QStringList selectors = adBlocker->isEnabled() ? adBlocker->cosmeticSelectorsFor(host) : QStringList();
+#ifdef DEBUG_MODE
+    cssDone();
+    qDebug() << "[cosmetic] host:" << host << "selectors:" << selectors.size();
+#endif
+
+    const QString jsBody = buildCosmeticEngine(selectors, "cosmeticDomain");
 
     QWebEngineScriptCollection &pageScripts = webPage->scripts();
     const QList<QWebEngineScript> existing = pageScripts.find("cosmeticDomain");
     for (const QWebEngineScript &s : existing) pageScripts.remove(s);
 
-    const QString jsBody = QString(R"(
-        (function() {
-            var css = `%1`;
-            if (!css) return;
-            function inject() {
-                var old = document.getElementById("cosmeticDomain");
-                if (old) old.remove();
-                var style = document.createElement('style');
-                style.id = "cosmeticDomain";
-                style.textContent = css;
-                (document.head || document.documentElement).appendChild(style);
-            }
-            if (document.documentElement) {
-                inject();
-            } else {
-                new MutationObserver(function(_, observer) {
-                    if (document.documentElement) {
-                        observer.disconnect();
-                        inject();
-                    }
-                }).observe(document, { childList: true });
-            }
-        })();
-    )").arg(escaped);
-
-    if (!css.isEmpty()) {
+    if (!selectors.isEmpty()) {
         QWebEngineScript script;
         script.setName("cosmeticDomain");
         script.setInjectionPoint(QWebEngineScript::DocumentCreation);

@@ -10,6 +10,7 @@
 
 #include <QWebEngineUrlRequestInterceptor>
 #include <QString>
+#include <QStringList>
 #include <QUrl>
 #include <unordered_set>
 #include <unordered_map>
@@ -19,6 +20,7 @@
 #include <QReadWriteLock>
 #include <QSet>
 #include <QHash>
+#include <QCache>
 
 // bitmask for $script/$subdocument/etc, mapped from ResourceType
 enum ResourceCategory : uint32_t {
@@ -114,13 +116,11 @@ public:
     // domains.isEmpty() == generic rule, applies on every site.
     void addCosmeticRule(const QStringList &domains, const QString &selector, bool isException);
 
-    // Domain-specific + generic selectors combined for this host, minus
-    // exceptions, ready to drop straight into a <style> tag. Empty if none.
-    QString cosmeticCssFor(const QString &host) const;
-
-    // Only the generic (non domain-scoped) selectors - safe to inject once
-    // for the whole profile since it doesn't depend on which page loads.
-    QString genericCosmeticCss() const;
+    // The raw selector lists, so the page-side engine can decide cheap-vs-complex
+    // and only inject what matches. Domain list excludes generic; the generic list
+    // is applied profile-wide on every page.
+    QStringList cosmeticSelectorsFor(const QString &host) const;
+    QStringList genericCosmeticSelectors() const;
 
 private:
     struct PatternRule {
@@ -132,10 +132,13 @@ private:
                                 const QString &host, uint32_t category, bool thirdParty, uint16_t method,
                                 const QString &firstPartyHost) const;
     bool hasImportantMatch(std::u16string_view hostView, std::u16string_view combinedView,
+                           const std::vector<std::u16string> &tokens,
                            uint32_t category, bool thirdParty, uint16_t method,
                            const QString &firstPartyHost) const;
-    bool matchBlockingPatterns(std::u16string_view combinedView, uint32_t category, bool thirdParty,
-                               uint16_t method, const QString &firstPartyHost, bool onlyImportant) const;
+    bool matchBlockingPatterns(std::u16string_view combinedView,
+                               const std::vector<std::u16string> &tokens,
+                               uint32_t category, bool thirdParty, uint16_t method,
+                               const QString &firstPartyHost, bool onlyImportant) const;
     bool isAllowedInternal(std::u16string_view hostView, const QString &lowerPath, const QString &lowerHost,
                            uint32_t category, bool thirdParty, uint16_t method,
                            const QString &firstPartyHost) const;
@@ -166,11 +169,16 @@ private:
     mutable QReadWriteLock mutex;
     bool m_enabled = true;
 
+    // Decision cache: key covers every input that affects the outcome, so a
+    // hit short-circuits the whole match pipeline for repeated subresources.
+    // Cleared whenever a filter mutates the rule sets. UI-thread-only.
+    QHash<QString, bool> m_decisionCache;
+
     static inline QSet<QString> s_pslRules;
     static inline QSet<QString> s_pslExceptions;
     static inline QReadWriteLock s_pslMutex{};
     static inline bool s_pslLoaded = false;
-    static inline QHash<QString, QString> s_regCache;
+    static inline QCache<QString, QString> s_regCache{16384};
     static inline QReadWriteLock s_regCacheMutex{};
 
     static bool isSafeCosmeticSelector(const QString &selector);

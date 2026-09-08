@@ -10,6 +10,7 @@
 #include <QHostAddress>
 #include <QByteArray>
 #include <QSet>
+#include <chrono>
 
 Interceptor::Interceptor(QObject* parent)
 : QWebEngineUrlRequestInterceptor(parent)
@@ -18,6 +19,7 @@ Interceptor::Interceptor(QObject* parent)
 
 void Interceptor::addBlockedDomain(const QString &domain, const std::optional<FilterRule> &rule) {
     QWriteLocker locker(&mutex);
+    m_decisionCache.clear();
     std::u16string key = domain.toLower().trimmed().toStdU16String();
     if (!rule.has_value() || rule->isTrivial()) {
         blockedDomains.insert(key);
@@ -28,6 +30,7 @@ void Interceptor::addBlockedDomain(const QString &domain, const std::optional<Fi
 
 void Interceptor::addBlockedPattern(const QString &pattern, const std::optional<FilterRule> &rule) {
     QWriteLocker locker(&mutex);
+    m_decisionCache.clear();
     std::u16string key = pattern.toLower().trimmed().toStdU16String();
     const std::u16string token = firstToken(key);
     if (!rule.has_value() || rule->isTrivial()) {
@@ -41,6 +44,7 @@ void Interceptor::addBlockedPattern(const QString &pattern, const std::optional<
 
 void Interceptor::addAllowedDomain(const QString &domain, const std::optional<FilterRule> &rule) {
     QWriteLocker locker(&mutex);
+    m_decisionCache.clear();
     std::u16string key = domain.toLower().trimmed().toStdU16String();
     if (!rule.has_value() || rule->isTrivial()) {
         allowedDomains.insert(key);
@@ -51,6 +55,7 @@ void Interceptor::addAllowedDomain(const QString &domain, const std::optional<Fi
 
 void Interceptor::addAllowedDomain(const QString &domain, const QString &path) {
     QWriteLocker locker(&mutex);
+    m_decisionCache.clear();
 
     std::u16string domainKey = domain.toLower().trimmed().toStdU16String();
     std::u16string pathKey = path.toLower().trimmed().toStdU16String();
@@ -196,8 +201,7 @@ QString Interceptor::registrableDomain(const QString &host) {
 
     {
         QReadLocker cacheLock(&s_regCacheMutex);
-        auto it = s_regCache.constFind(host);
-        if (it != s_regCache.cend()) return it.value();
+        if (const QString *cached = s_regCache.object(host)) return *cached;
     }
 
     const QString lower = host.toLower();
@@ -258,8 +262,7 @@ QString Interceptor::registrableDomain(const QString &host) {
 
     {
         QWriteLocker cacheLock(&s_regCacheMutex);
-        if (s_regCache.size() >= 4096) s_regCache.clear();
-        s_regCache.insert(host, result);
+        s_regCache.insert(host, new QString(result));
     }
     return result;
 }
@@ -296,6 +299,7 @@ bool Interceptor::restrictedDomainMatch(const std::unordered_map<std::u16string,
 }
 
 bool Interceptor::hasImportantMatch(std::u16string_view hostView, std::u16string_view combinedView,
+                                     const std::vector<std::u16string> &tokens,
                                      uint32_t category, bool thirdParty, uint16_t method,
                                      const QString &firstPartyHost) const {
     // caller must hold "mutex"
@@ -325,7 +329,7 @@ bool Interceptor::hasImportantMatch(std::u16string_view hostView, std::u16string
         if (checkAt(hostView.substr(index))) return true;
     }
 
-    return matchBlockingPatterns(combinedView, category, thirdParty, method, firstPartyHost, true);
+    return matchBlockingPatterns(combinedView, tokens, category, thirdParty, method, firstPartyHost, true);
 }
 
 bool Interceptor::checkDomainSet(const std::unordered_set<std::u16string> &set, std::u16string_view hostView) {
@@ -378,11 +382,11 @@ void Interceptor::collectUrlTokens(std::u16string_view combined, std::vector<std
     }
 }
 
-bool Interceptor::matchBlockingPatterns(std::u16string_view combinedView, uint32_t category, bool thirdParty,
-                                        uint16_t method, const QString &firstPartyHost, bool onlyImportant) const {
+bool Interceptor::matchBlockingPatterns(std::u16string_view combinedView,
+                                        const std::vector<std::u16string> &tokens,
+                                        uint32_t category, bool thirdParty, uint16_t method,
+                                        const QString &firstPartyHost, bool onlyImportant) const {
     // caller must hold "mutex"
-    std::vector<std::u16string> tokens;
-    collectUrlTokens(combinedView, tokens);
 
     for (const auto &tok : tokens) {
         if (!onlyImportant) {
@@ -498,16 +502,18 @@ bool Interceptor::isSafeCosmeticSelector(const QString &selector) {
         ":style(", ":matches-attr(", ":matches-path(", "+js(", ":contains(",
         ":min-text-length(", ":others("
     };
-    for (const QString &m : kUnsafeMarkers)
+    for (const QString &m : kUnsafeMarkers) {
         if (selector.contains(m, Qt::CaseInsensitive)) return false;
+    }
 
-        // Never allow characters that could break out of the JS template literal
-        // this gets embedded into later, a compromised/malicious filter list is
-        // otherwise a script injection vector via a backtick in a "selector".
-        for (const QChar &c : selector)
-            if (c == QChar('`') || c == QChar('<') || c == QChar('>')) return false;
+    // Defense in depth: the list is embedded as JSON (properly escaped), but
+    // reject backticks and markup-adjacent chars so a compromised filter list
+    // can never smuggle template/HTML text into the page.
+    for (const QChar &c : selector) {
+        if (c == QChar('`') || c == QChar('<') || c == QChar('>')) return false;
+    }
 
-            return true;
+    return true;
 }
 
 void Interceptor::addCosmeticRule(const QStringList &domains, const QString &selector, bool isException) {
@@ -537,25 +543,8 @@ void Interceptor::addCosmeticRule(const QStringList &domains, const QString &sel
     }
 }
 
-QString Interceptor::genericCosmeticCss() const {
-    QReadLocker locker(&cosmeticMutex);
-    if (cosmeticGenericSelectors.empty()) return QString();
-
-    QStringList selectors;
-    for (const auto &s : cosmeticGenericSelectors) {
-        if (cosmeticGenericExceptions.count(s)) continue;
-        selectors << QString::fromStdU16String(s);
-    }
-    if (selectors.isEmpty()) return QString();
-
-    // :where(...) is a *forgiving* selector list, one bad/unsupported
-    // selector in the batch is skipped instead of invalidating the whole
-    // rule, and it carries zero specificity so it can't fight page CSS.
-    return QStringLiteral(":where(\n%1\n) { display: none !important; }").arg(selectors.join(",\n"));
-}
-
-QString Interceptor::cosmeticCssFor(const QString &host) const {
-    if (host.isEmpty()) return QString();
+QStringList Interceptor::cosmeticSelectorsFor(const QString &host) const {
+    if (host.isEmpty()) return {};
     const QString lowerHost = host.toLower();
     std::u16string_view hostView(reinterpret_cast<const char16_t*>(lowerHost.utf16()), lowerHost.size());
 
@@ -567,9 +556,9 @@ QString Interceptor::cosmeticCssFor(const QString &host) const {
         if (it == cosmeticExceptionsByDomain.end()) return;
         for (const auto &s : it->second) exceptions.insert(QString::fromStdU16String(s));
     };
-        collectExceptionsAt(hostView);
-        for (size_t i = 0; (i = hostView.find(u'.', i)) != std::u16string_view::npos; )
-            collectExceptionsAt(hostView.substr(++i));
+    collectExceptionsAt(hostView);
+    for (size_t i = 0; (i = hostView.find(u'.', i)) != std::u16string_view::npos; )
+        collectExceptionsAt(hostView.substr(++i));
     for (const auto &s : cosmeticGenericExceptions) exceptions.insert(QString::fromStdU16String(s));
 
     QSet<QString> selectors;
@@ -584,14 +573,21 @@ QString Interceptor::cosmeticCssFor(const QString &host) const {
     collectAt(hostView);
     for (size_t i = 0; (i = hostView.find(u'.', i)) != std::u16string_view::npos; )
         collectAt(hostView.substr(++i));
-    for (const auto &s : cosmeticGenericSelectors) {
-        QString sel = QString::fromStdU16String(s);
-        if (!exceptions.contains(sel)) selectors.insert(sel);
-    }
 
-    if (selectors.isEmpty()) return QString();
-    return QStringLiteral(":where(\n%1\n) { display: none !important; }")
-    .arg(QStringList(selectors.begin(), selectors.end()).join(",\n"));
+    if (selectors.isEmpty()) return {};
+    return {selectors.begin(), selectors.end()};
+}
+
+QStringList Interceptor::genericCosmeticSelectors() const {
+    QReadLocker locker(&cosmeticMutex);
+    if (cosmeticGenericSelectors.empty()) return {};
+
+    QStringList selectors;
+    for (const auto &s : cosmeticGenericSelectors) {
+        if (cosmeticGenericExceptions.count(s)) continue;
+        selectors << QString::fromStdU16String(s);
+    }
+    return selectors;
 }
 
 void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
@@ -608,13 +604,31 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
 
     if (!m_enabled) return;
 
+#ifdef DEBUG_MODE
+    std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    static int s_iCount = 0;
+    static long long s_iUs = 0;
+    static int s_iHits = 0;
+    static int s_iMisses = 0;
+    auto iFinish = [&](bool hit) {
+        s_iCount++;
+        if (hit) s_iHits++; else s_iMisses++;
+        s_iUs += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
+        if (s_iCount % 250 == 0) {
+            const int hitPct = s_iCount ? static_cast<int>(100.0 * s_iHits / s_iCount) : 0;
+            qDebug() << "[interceptor] reqs:" << s_iCount
+                     << "avg_us:" << static_cast<int>(s_iUs / qMax(1LL, s_iCount))
+                     << "hits:" << s_iHits << "misses:" << s_iMisses
+                     << "hit_pct:" << hitPct;
+        }
+    };
+#endif
+
     QUrl requestUrl = info.requestUrl();
     QString host = requestUrl.host();
     if (host.isEmpty()) return;
 
-    QString firstPartyHost = info.firstPartyUrl().host();
-
-    const bool thirdParty = (registrableDomain(host) != registrableDomain(firstPartyHost));
+    const QString firstPartyHost = info.firstPartyUrl().host();
     const uint32_t category = categoryForResourceType(static_cast<int>(info.resourceType()));
     const uint16_t method = methodForString(info.requestMethod());
 
@@ -625,46 +639,50 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
     QString combined = lowerHost + lowerPath;
     std::u16string_view combinedView(reinterpret_cast<const char16_t*>(combined.utf16()), combined.size());
 
+    // Identical host is first-party by definition; skips both PSL lookups.
+    const bool thirdParty = (host.compare(firstPartyHost, Qt::CaseInsensitive) != 0)
+        && (registrableDomain(host) != registrableDomain(firstPartyHost));
+
     QReadLocker locker(&mutex);
 
-    if (hasImportantMatch(hostView, combinedView, category, thirdParty, method, firstPartyHost)) {
-        info.block(true);
+    // Key covers every input that affects the outcome, so a hit can never be
+    // stale unless the rule sets themselves change (which clears this cache).
+    const QString cacheKey = combined + QLatin1Char('\x1f') + firstPartyHost
+        + QLatin1Char('\x1f') + QString::number(category)
+        + QLatin1Char('\x1f') + QString::number(method)
+        + QLatin1Char('\x1f') + QLatin1Char(thirdParty ? '1' : '0');
+    const auto cacheIt = m_decisionCache.constFind(cacheKey);
+    if (cacheIt != m_decisionCache.cend()) {
         #ifdef DEBUG_MODE
-        qDebug() << "Blocked (important):" << host << requestUrl.path();
+        iFinish(true);
         #endif
+        if (cacheIt.value()) info.block(true);
         return;
     }
 
-    if (isAllowedInternal(hostView, lowerPath, lowerHost, category, thirdParty, method, firstPartyHost))
-        return;
+    std::vector<std::u16string> tokens;
+    tokens.reserve(64);
+    collectUrlTokens(combinedView, tokens);
 
-    if (restrictedDomainMatch(restrictedBlockedDomains, lowerHost, category, thirdParty, method, firstPartyHost)) {
-        info.block(true);
-        #ifdef DEBUG_MODE
-        qDebug()
-        << "Blocked:" << host << requestUrl.path()
-        << "Type:" << info.resourceType()
-        << "Category:" << category
-        << "3rdParty:" << thirdParty
-        << "Method:" << info.requestMethod();
-        #endif
-        return;
+    bool shouldBlock = false;
+    if (hasImportantMatch(hostView, combinedView, tokens, category, thirdParty, method, firstPartyHost)) {
+        shouldBlock = true;
+    } else if (!isAllowedInternal(hostView, lowerPath, lowerHost, category, thirdParty, method, firstPartyHost)) {
+        if (restrictedDomainMatch(restrictedBlockedDomains, lowerHost, category, thirdParty, method, firstPartyHost)
+            || checkDomainSet(blockedDomains, hostView)
+            || matchBlockingPatterns(combinedView, tokens, category, thirdParty, method, firstPartyHost, false)) {
+            shouldBlock = true;
+        }
     }
 
-    if (checkDomainSet(blockedDomains, hostView)) {
-        info.block(true);
-        #ifdef DEBUG_MODE
-        qDebug()
-        << "Blocked:" << host << requestUrl.path()
-        << "Type:" << info.resourceType()
-        << "Category:" << category
-        << "3rdParty:" << thirdParty
-        << "Method:" << info.requestMethod();
-        #endif
-        return;
-    }
+    if (m_decisionCache.size() >= 4096) m_decisionCache.clear();
+    m_decisionCache.insert(cacheKey, shouldBlock);
 
-    if (matchBlockingPatterns(combinedView, category, thirdParty, method, firstPartyHost, false)) {
+#ifdef DEBUG_MODE
+    iFinish(false);
+#endif
+
+    if (shouldBlock) {
         info.block(true);
         #ifdef DEBUG_MODE
         qDebug()
