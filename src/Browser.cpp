@@ -6,6 +6,9 @@
  */
 
 #include "../include/Browser.h"
+#include "../include/AdBlock.h"
+#include "../include/ExtensionManager.h"
+#include "../include/CookieManager.h"
 #include "../include/Interceptor.h"
 #include "../include/Localization.h"
 #include "../include/DownloadManager.h"
@@ -31,14 +34,12 @@
 #include <QStyleFactory>
 #include <QToolBar>
 #include <QStandardPaths>
-#include <QThreadPool>
 #include <QToolButton>
 #include <QFontDatabase>
 #include <QShortcut>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <chrono>
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include <QDir>
@@ -84,37 +85,7 @@ Browser::Browser(const QString &initialUrl) {
     QString savedLang = settings->value("language", "en").toString();
     Localization::loadLanguage(savedLang.toStdString());
 
-    auto *store = profile->cookieStore();
-
-    // Debounce cookie persistence to avoid heavy disk I/O on burst updates
-    m_cookieSaveTimer = new QTimer(this);
-    m_cookieSaveTimer->setSingleShot(true);
-    m_cookieSaveTimer->setInterval(2000);
-    connect(m_cookieSaveTimer, &QTimer::timeout, this, &Browser::saveCookiesToJson);
-
-    // In-memory cookie management and manual persistence
-    connect(store, &QWebEngineCookieStore::cookieAdded, this, [this](const QNetworkCookie &cookie) {
-
-        cookieCache.removeAll(cookie);
-        cookieCache.append(cookie);
-
-        #ifdef DEBUG_MODE
-        qDebug() << "Saved cookie:" << cookie.name();
-        #endif
-
-        m_cookieSaveTimer->start();
-    });
-
-    connect(store, &QWebEngineCookieStore::cookieRemoved, this, [this](const QNetworkCookie &cookie) {
-
-        cookieCache.removeAll(cookie);
-
-        #ifdef DEBUG_MODE
-        qDebug() << "Removed cookie:" << cookie.name();
-        #endif
-
-        m_cookieSaveTimer->start();
-    });
+    cookieManager = new CookieManager(profile, this);
 
     // Dynamic User-Agent fetching to match the latest stable Chrome version
     auto *mgr = new QNetworkAccessManager(this);
@@ -188,377 +159,23 @@ Browser::Browser(const QString &initialUrl) {
 
     connect(profile, &QWebEngineProfile::downloadRequested, this, &Browser::handleDownload);
 
-    // Ad-Blocker initialization and filter list fetching
-    adBlocker = new Interceptor(profile);
-    profile->setUrlRequestInterceptor(adBlocker);
-    setAdBlockEnabled(settings->value("adBlockEnabled", true).toBool());
-
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
 
-    QStringList filterLists = {
-        "https://ublockorigin.github.io/uAssets/filters/filters.txt", // uBlock Origin – Base/Ads
-        "https://ublockorigin.github.io/uAssets/filters/privacy.txt", // uBlock Origin – Privacy
-        "https://ublockorigin.github.io/uAssets/filters/quick-fixes.txt", // uBlock Origin – Quick fixes
-        "https://ublockorigin.github.io/uAssets/filters/unbreak.txt", // uBlock Origin – Unbreak
-        "https://ublockorigin.github.io/uAssets/thirdparties/easylist.txt", // 3rdParty - EasyList
-        "https://ublockorigin.github.io/uAssets/thirdparties/easyprivacy.txt" // 3rdParty - EasyPrivacy
-    };
+    // Ad-Blocker initialization and filter list fetching
+    adBlock = new AdBlock(profile, this);
+    adBlock->setEnabled(settings->value("adBlockEnabled", true).toBool());
+    adBlock->fetchFilterLists(manager);
+    adBlock->fetchPublicSuffixData(manager);
 
-    const QString filterCacheDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/FilterCache";
-    QDir().mkpath(filterCacheDir);
-
-    for (const QString &url : filterLists) {
-        const QString cachePath = filterCacheDir + "/" + QString::number(qHash(url), 16) + ".txt";
-
-        // Same parsing/apply logic either way, just called with cached bytes
-        // (instant, used at startup so ad blocking is active immediately
-        // instead of waiting on the network) or with a fresh network response.
-        auto applyFilterData = [this](const QByteArray &data) {
-            // Process filter rules in a background thread to keep UI responsive
-            QThreadPool::globalInstance()->start([this, data]() {
-                    // modifiers we can't safely enforce (need body/header rewrite,
-                    // or reference other rules), drop the rule instead of guessing
-                    static const QSet<QString> kUnsupportedModifiers = {
-                        "badfilter", "csp", "removeparam", "redirect", "redirect-rule",
-                        "replace", "cookie", "empty", "mp4", "cname", "elemhide",
-                        "generichide", "genericblock", "content", "jsonprune", "hls",
-                        "referrerpolicy", "urltransform", "uritransform", "header",
-                        "document", "doc", "all"
-                    };
-                    static const QHash<QString, uint32_t> kResourceKeywords = {
-                        {"script", ResCatScript}, {"image", ResCatImage},
-                        {"stylesheet", ResCatStylesheet}, {"css", ResCatStylesheet},
-                        {"object", ResCatObject},
-                        {"xmlhttprequest", ResCatXHR}, {"xhr", ResCatXHR},
-                        {"subdocument", ResCatSubdocument}, {"frame", ResCatSubdocument},
-                        {"font", ResCatFont}, {"media", ResCatMedia},
-                        {"websocket", ResCatWebSocket}, {"ws", ResCatWebSocket},
-                        {"ping", ResCatPing}, {"popup", ResCatPopup}, {"other", ResCatOther},
-                    };
-
-                    // parses "a,b,c" in "||domain^$a,b,c". false = drop the rule
-                    auto parseFilterOptions = [&](const QString &optionsStr, FilterRule &rule) -> bool {
-                        if (optionsStr.isEmpty()) return true;
-                        const QStringList tokens = optionsStr.split(',', Qt::SkipEmptyParts);
-                        for (QString token : tokens) {
-                            token = token.trimmed();
-                            if (token.isEmpty()) continue;
-
-                            if (token.startsWith("domain=", Qt::CaseInsensitive)) {
-                                const QStringList domains = token.mid(7).split('|', Qt::SkipEmptyParts);
-                                for (const QString &d : domains) {
-                                    if (d.startsWith('~')) rule.domainExcludes.push_back(d.mid(1).toLower().toStdU16String());
-                                    else rule.domainIncludes.push_back(d.toLower().toStdU16String());
-                                }
-                                continue;
-                            }
-
-                            if (token.startsWith("method=", Qt::CaseInsensitive)) {
-                                const QStringList methods = token.mid(7).split('|', Qt::SkipEmptyParts);
-                                for (const QString &m : methods) {
-                                    bool neg = m.startsWith('~');
-                                    const QByteArray name = (neg ? m.mid(1) : m).toUtf8();
-                                    const uint16_t bit = Interceptor::methodForString(name);
-                                    if (bit == 0) return false; // unknown method, drop rule instead of guessing
-                                    if (neg) rule.methodExcludeMask |= bit;
-                                    else rule.methodIncludeMask |= bit;
-                                }
-                                continue;
-                            }
-
-                            bool negated = token.startsWith('~');
-                            QString key = (negated ? token.mid(1) : token).toLower();
-
-                            if (kUnsupportedModifiers.contains(key)) return false;
-
-                            if (key == "third-party" || key == "3p") { rule.thirdParty = negated ? -1 : 1; continue; }
-                            if (key == "first-party" || key == "1p") { rule.thirdParty = negated ? 1 : -1; continue; }
-                            if (key == "important") { rule.important = true; continue; }
-
-                            auto it = kResourceKeywords.find(key);
-                            if (it != kResourceKeywords.end()) {
-                                if (negated) rule.excludeMask |= it.value();
-                                else rule.includeMask |= it.value();
-                                continue;
-                            }
-
-                            // unknown modifier, drop instead of guessing
-                            return false;
-                        }
-                        return true;
-                    };
-
-                    auto extractBase = [](QString l) -> QString {
-                        l = l.trimmed();
-                        int d = l.indexOf('$');
-                        if (d != -1) l = l.left(d);
-                        return l.trimmed().toLower();
-                    };
-
-                    QSet<QString> badfilteredBases; {
-                        QTextStream scan(data);
-                        while (!scan.atEnd()) {
-                            QString line = scan.readLine().trimmed();
-                            if (line.isEmpty() || line.startsWith('!') || line.startsWith('@')) continue;
-                            int dollarPos = line.indexOf('$');
-                            if (dollarPos == -1) continue;
-                            const QStringList opts = line.mid(dollarPos + 1).split(',', Qt::SkipEmptyParts);
-                            bool hasBadfilter = false;
-                            for (const QString &o : opts) {
-                                if (o.trimmed().compare("badfilter", Qt::CaseInsensitive) == 0) { hasBadfilter = true; break; }
-                            }
-                            if (hasBadfilter) badfilteredBases.insert(extractBase(line));
-                        }
-                    }
-
-                    QTextStream in(data);
-                    int count = 0;
-                    QStringList domainsToAdd;
-                    QVector<QPair<QString, FilterRule>> restrictedDomainsToAdd;
-                    QStringList patternsToAdd;
-                    QVector<QPair<QString, FilterRule>> restrictedPatternsToAdd;
-                    QStringList allowsToAdd;
-                    QVector<QPair<QString, FilterRule>> restrictedAllowsToAdd;
-
-                    struct CosmeticRuleData { QStringList domains; QString selector; bool isException; };
-                    QVector<CosmeticRuleData> cosmeticRulesToAdd;
-
-                    while (!in.atEnd()) {
-                        QString line = in.readLine().trimmed();
-                        if (line.isEmpty() || line.startsWith("!") || line.startsWith("[")) {
-                            continue;
-                            }
-
-                            // Cosmetic filters: "domain1,domain2##selector" or generic "##selector",
-                            // with "#@#" exceptions. We don't support "#$#"/"#%#" injection or
-                            // scriptlets to prevent untrusted CSS/JavaScript execution.
-                            if (!line.contains("#$#") && !line.contains("#%#") &&
-                                (line.contains("#@#") || line.contains("##"))) {
-                                const bool isException = line.contains("#@#");
-                            const QString marker = isException ? "#@#" : "##";
-                            const int markerPos = line.indexOf(marker);
-                            if (markerPos == -1) continue;
-
-                            const QString domainsPart = line.left(markerPos).trimmed();
-                                const QString selector = line.mid(markerPos + marker.length()).trimmed();
-
-                                QStringList domains;
-                                if (!domainsPart.isEmpty()) {
-                                    domains = domainsPart.split(',', Qt::SkipEmptyParts);
-                                    for (QString &d : domains) d = d.trimmed().toLower();
-                                }
-                                if (!selector.isEmpty())
-                                    cosmeticRulesToAdd << CosmeticRuleData{domains, selector, isException};
-                                continue;
-                            }
-
-                            if (!badfilteredBases.isEmpty() && badfilteredBases.contains(extractBase(line))) {
-                                continue; // cancelled by a $badfilter rule elsewhere in this list
-                            }
-
-                            if (line.startsWith("@@")) {
-                                QString exception = line.mid(2);
-                                if (exception.startsWith("||")) exception = exception.mid(2);
-
-                                QString optionsStr;
-                                int dollarPos = exception.indexOf('$');
-                                if (dollarPos != -1) {
-                                    optionsStr = exception.mid(dollarPos + 1);
-                                    exception = exception.left(dollarPos);
-                                }
-
-                                if (exception.contains('/')) {
-                                    QString pattern = exception.trimmed().toLower();
-                                    if (!pattern.isEmpty()) {
-                                        FilterRule rule;
-                                        if (parseFilterOptions(optionsStr, rule)) {
-                                            adBlocker->addAllowedDomain(pattern.section('/', 0, 0), rule.domainIncludes.empty() && rule.domainExcludes.empty() ? std::optional<FilterRule>(rule) : std::optional<FilterRule>(rule));
-                                        }
-                                    }
-                                    continue;
-                                }
-
-                                exception = exception.section('^', 0, 0).trimmed().toLower();
-
-                                if (!exception.isEmpty() && exception.contains(".")) {
-                                    FilterRule rule;
-                                    if (parseFilterOptions(optionsStr, rule)) {
-                                        if (rule.isTrivial()) allowsToAdd << exception;
-                                        else restrictedAllowsToAdd << qMakePair(exception, rule);
-                                    }
-                                }
-                                continue;
-                            }
-
-                            QString domain;
-                            QString optionsStr;
-                            if (line.startsWith("||")) {
-                                domain = line.mid(2);
-                                int dollarPos = domain.indexOf('$');
-                                if (dollarPos != -1) {
-                                    optionsStr = domain.mid(dollarPos + 1);
-                                    domain = domain.left(dollarPos);
-                                }
-                                // '/' means this targets a path, not the whole domain route it through the pattern matcher instead of blockedDomains.
-                                int slashPos = domain.indexOf('/');
-                                if (slashPos != -1) {
-                                    QString pattern = domain.trimmed().toLower();
-                                    if (!pattern.isEmpty()) {
-                                        FilterRule rule;
-                                        if (parseFilterOptions(optionsStr, rule)) {
-                                            if (rule.isTrivial()) patternsToAdd << pattern;
-                                            else restrictedPatternsToAdd << qMakePair(pattern, rule);
-                                        }
-                                    }
-                                    continue;
-                                }
-                                int end = domain.indexOf(QRegularExpression("[\\^/:]"));
-                                if (end != -1) domain = domain.left(end);
-                            } else if (line.contains("/") && !line.contains("*")) {
-                                QString pattern = line.startsWith("||") ? line.mid(2) : line;
-                                int dollarPos = pattern.indexOf('$');
-                                QString patOptions;
-                                if (dollarPos != -1) {
-                                    patOptions = pattern.mid(dollarPos + 1);
-                                    pattern = pattern.left(dollarPos);
-                                }
-                                // '|' anchors the URL start/end, it never appears literally
-                                // in a real URL, so leaving it in the pattern text makes the
-                                // rule permanently unmatchable.
-                                if (pattern.startsWith("|")) pattern = pattern.mid(1);
-                                if (pattern.endsWith("|")) pattern.chop(1);
-                                pattern = pattern.trimmed().toLower();
-                                if (!pattern.isEmpty()) {
-                                    FilterRule rule;
-                                    if (parseFilterOptions(patOptions, rule)) {
-                                        if (rule.isTrivial()) patternsToAdd << pattern;
-                                        else restrictedPatternsToAdd << qMakePair(pattern, rule);
-                                    }
-                                }
-                                continue;
-                            } else if (line.contains("*")) {
-                                QString pattern = line;
-                                int dollarPos = pattern.indexOf('$');
-                                QString patOptions;
-                                if (dollarPos != -1) {
-                                    patOptions = pattern.mid(dollarPos + 1);
-                                    pattern = pattern.left(dollarPos);
-                                }
-                                if (pattern.startsWith("||")) pattern = pattern.mid(2);
-                                if (pattern.startsWith("|")) pattern = pattern.mid(1);
-                                if (pattern.endsWith("|")) pattern.chop(1);
-                                pattern = pattern.trimmed().toLower();
-                                if (!pattern.isEmpty()) {
-                                    FilterRule rule;
-                                    if (parseFilterOptions(patOptions, rule)) {
-                                        if (rule.isTrivial()) patternsToAdd << pattern;
-                                        else restrictedPatternsToAdd << qMakePair(pattern, rule);
-                                    }
-                                }
-                                continue;
-                            } else if (line.startsWith(".")) {
-                                QString d = line.mid(1);
-                                int dollarPos = d.indexOf('$');
-                                if (dollarPos != -1) {
-                                    optionsStr = d.mid(dollarPos + 1);
-                                    d = d.left(dollarPos);
-                                }
-                                int end = d.indexOf(QRegularExpression("[\\^/:]"));
-                                if (end != -1) d = d.left(end);
-                                domain = d;
-                            } else {
-                                domain = line;
-                            }
-
-                            domain = domain.trimmed().toLower();
-                            if (domain.isEmpty() || !domain.contains(".") || domain.contains("*")) continue;
-
-                            FilterRule rule;
-                        if (!parseFilterOptions(optionsStr, rule)) continue;
-
-                        if (rule.isTrivial()) {
-                            domainsToAdd << domain;
-                        } else {
-                            restrictedDomainsToAdd << qMakePair(domain, rule);
-                        }
-                        count++;
-                    }
-
-                    for (const auto &c : cosmeticRulesToAdd) {
-                        adBlocker->addCosmeticRule(c.domains, c.selector, c.isException);
-                    }
-                    for(const QString& d : domainsToAdd) {
-                        adBlocker->addBlockedDomain(d);
-                    }
-                    for (const auto &pair : restrictedDomainsToAdd) {
-                        adBlocker->addBlockedDomain(pair.first, pair.second);
-                    }
-                    for(const QString& p : patternsToAdd) {
-                        adBlocker->addBlockedPattern(p);
-                    }
-                    for (const auto &pair : restrictedPatternsToAdd) {
-                        adBlocker->addBlockedPattern(pair.first, pair.second);
-                    }
-                    for(const QString& a : allowsToAdd) {
-                        adBlocker->addAllowedDomain(a);
-                    }
-                    for (const auto &pair : restrictedAllowsToAdd) {
-                        adBlocker->addAllowedDomain(pair.first, pair.second);
-                    }
-
-                    // profile->scripts() / tabWidget must be touched on the GUI thread.
-                    QMetaObject::invokeMethod(this, [this]() { refreshCosmeticGenericScript(); }, Qt::QueuedConnection);
-
-                    #ifdef DEBUG_MODE
-                    qDebug() << "AdRules:" << count;
-                    #endif
-            });
-        };
-
-        QFile cacheFile(cachePath);
-        bool hadCache = false;
-        if (cacheFile.open(QIODevice::ReadOnly)) {
-            hadCache = true;
-            applyFilterData(cacheFile.readAll());
-            cacheFile.close();
+    connect(adBlock, &AdBlock::genericCosmeticChanged, this, [this](const QString &engineSource) {
+        // Re-run the profile-wide generic script on already-open tabs; new
+        // pages pick it up from the script collection anyway.
+        if (!tabWidget) return;
+        for (int i = 0; i < tabWidget->count(); ++i) {
+            TabPage* p = qobject_cast<TabPage*>(tabWidget->widget(i));
+            if (p && p->webView() && p->webView()->page())
+                p->webView()->page()->runJavaScript(engineSource);
         }
-
-        QNetworkRequest request{QUrl(url)};
-        QNetworkReply* reply = manager->get(request);
-
-        connect(reply, &QNetworkReply::finished, this, [this, reply, cachePath, hadCache, applyFilterData]() {
-            if (reply->error() == QNetworkReply::NoError) {
-                QByteArray data = reply->readAll();
-
-                QFile cacheOut(cachePath);
-                if (cacheOut.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                    cacheOut.write(data);
-                    cacheOut.close();
-                }
-
-                // Cache already applied above if it existed, only apply this
-                // fresh copy live when this was the very first run for this URL.
-                if (!hadCache) {
-                    applyFilterData(data);
-                }
-            } else {
-                qWarning() << "Filter list fetch failed:" << reply->url() << reply->errorString();
-            }
-            reply->deleteLater();
-        });
-    }
-
-    QUrl pslUrl("https://publicsuffix.org/list/public_suffix_list.dat");
-    QNetworkReply* reply = manager->get(QNetworkRequest(pslUrl));
-
-    connect(reply, &QNetworkReply::finished, this, [reply]() {
-        if (reply->error() == QNetworkReply::NoError) {
-            QByteArray data = reply->readAll();
-            QThreadPool::globalInstance()->start([data]() {
-                Interceptor::loadPublicSuffixData(data);
-            });
-        }
-        reply->deleteLater();
     });
 
     // Layout and UI construction
@@ -573,7 +190,7 @@ Browser::Browser(const QString &initialUrl) {
     TabBar* bar = qobject_cast<TabBar*>(tabWidget->tabBar());
 
     createToolbar();
-    loadCookiesFromJson();
+    cookieManager->loadCookies();
     loadBookmarks();
 
     {
@@ -601,7 +218,8 @@ Browser::Browser(const QString &initialUrl) {
         return this->executeExtensionScriptInTab(tabId, extId, fileName);
     });
 
-    loadExtensions();
+    extensionManager = new ExtensionManager(profile, settings, this);
+    extensionManager->loadExtensions();
 
     m_updateChecker = new UpdateChecker(this);
     connect(m_updateChecker, &UpdateChecker::updateAvailable, this, &Browser::onUpdateAvailable);
@@ -1116,157 +734,6 @@ void Browser::applyTheme(int themeIndex) {
     }
 }
 
-void Browser::refreshCosmeticGenericScript() {
-    // gets called once per list (cache + network + local-filters.txt), so on
-    // startup this fires like 10 times back to back, debounce it.
-    if (m_cosmeticRefreshPending) return;
-    m_cosmeticRefreshPending = true;
-    QTimer::singleShot(300, this, [this]() {
-        m_cosmeticRefreshPending = false;
-        doRefreshCosmeticGenericScript();
-    });
-}
-
-// Takes the raw selector list and produces the page-side cosmetic engine.
-// Class/id/tag-only selectors go straight into an unconditional stylesheet
-// (Blink hashes those, cheap to match). Selectors with combinators/
-// attributes/pseudo-classes are probed against the live DOM once and only
-// the actually-matching ones get injected, so heavy sites don't carry a few
-// hundred unused complex selectors on every style recalc / resize. A slow
-// watchdog re-scans late DOM additions (SPA ads) for a while after load.
-static QString buildCosmeticEngine(const QStringList &selectors, const QString &styleId) {
-    return QString::fromLatin1(R"((function(){
-var all=%1;
-var STYLE="%2";
-if(!all||!all.length)return;
-var cheap=[],probe=[];
-for(var i=0;i<all.length;i++){
-    var s=all[i],cpx=false;
-    for(var j=0;j<s.length;j++){
-        var c=s.charCodeAt(j);
-        if(c===32||c===62||c===126||c===43||c===91||c===58){cpx=true;break;}
-    }
-    (cpx?probe:cheap).push(s);
-}
-function putStyle(idTag,text){
-    if(!document.getElementById)return;
-    var el=document.getElementById(idTag);
-    if(el)el.remove();
-    if(!text)return;
-    el=document.createElement("style");
-    el.id=idTag;
-    el.textContent=text;
-    var root=document.head||document.documentElement;
-    if(root)root.appendChild(el);
-}
-function listBlock(list){return ":where("+list.join(",\n")+"){display:none!important}";}
-if(cheap.length)putStyle(STYLE,listBlock(cheap));
-var matched=[],cursor=0;
-function putMatched(){
-    if(matched.length)putStyle(STYLE+"M",listBlock(matched));
-    else putStyle(STYLE+"M","");
-}
-function idleRun(fn){
-    if(window.requestIdleCallback)window.requestIdleCallback(fn,{timeout:300});
-    else setTimeout(fn,60);
-}
-function probeSome(){
-    var t0=Date.now();
-    while(cursor<probe.length&&Date.now()-t0<5){
-        var s=probe[cursor++];
-        try{if(document.querySelector(s)&&matched.indexOf(s)<0)matched.push(s);}catch(e){}
-    }
-    putMatched();
-    if(cursor<probe.length)idleRun(probeSome);
-}
-idleRun(probeSome);
-var quiet=0;
-function watchdog(){
-    var t0=Date.now(),changed=false;
-    for(var i=0;i<probe.length&&Date.now()-t0<5;i++){
-        var s=probe[i];
-        if(matched.indexOf(s)>=0)continue;
-        try{if(document.querySelector(s)){matched.push(s);changed=true;}}catch(e){}
-    }
-    if(changed){quiet=0;putMatched();}else quiet++;
-    if(quiet<40)setTimeout(watchdog,2000);
-}
-setTimeout(watchdog,1500);
-})();)")
-    .arg(QString::fromUtf8(QJsonDocument(QJsonArray::fromStringList(selectors)).toJson(QJsonDocument::Compact)), styleId);
-}
-
-void Browser::doRefreshCosmeticGenericScript() {
-    const QStringList selectors = adBlocker->genericCosmeticSelectors();
-    const QString jsBody = buildCosmeticEngine(selectors, "cosmeticGeneric");
-
-    QWebEngineScriptCollection* scripts = profile->scripts();
-    const QList<QWebEngineScript> existing = scripts->find("cosmeticGeneric");
-    for (const QWebEngineScript &s : existing) scripts->remove(s);
-    if (selectors.isEmpty()) return;
-
-    QWebEngineScript script;
-    script.setName("cosmeticGeneric");
-    script.setInjectionPoint(QWebEngineScript::DocumentCreation);
-    script.setWorldId(QWebEngineScript::MainWorld);
-    script.setRunsOnSubFrames(false);
-    script.setSourceCode(jsBody);
-    scripts->insert(script);
-
-    for (int i = 0; i < tabWidget->count(); ++i) {
-        TabPage* p = qobject_cast<TabPage*>(tabWidget->widget(i));
-        if (p && p->webView() && p->webView()->page())
-            p->webView()->page()->runJavaScript(jsBody);
-    }
-}
-
-void Browser::applyCosmeticFiltersForPage(TabPage* page, const QString &host) {
-    if (!page || !page->webView() || !page->webView()->page()) return;
-    QWebEnginePage* webPage = page->webView()->page();
-
-#ifdef DEBUG_MODE
-    std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
-    static int s_cc = 0;
-    static long long s_cus = 0;
-    static long long s_cmax = 0;
-    const auto cssDone = [&]() {
-        long long us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
-        s_cc++;
-        s_cus += us;
-        if (us > s_cmax) s_cmax = us;
-        if (s_cc % 10 == 0) {
-            qDebug() << "[cosmetic] calls:" << s_cc
-                     << "avg_us:" << (int)(s_cus / qMax(1LL, s_cc))
-                     << "max_us:" << s_cmax;
-        }
-    };
-#endif
-
-    const QStringList selectors = adBlocker->isEnabled() ? adBlocker->cosmeticSelectorsFor(host) : QStringList();
-#ifdef DEBUG_MODE
-    cssDone();
-    qDebug() << "[cosmetic] host:" << host << "selectors:" << selectors.size();
-#endif
-
-    const QString jsBody = buildCosmeticEngine(selectors, "cosmeticDomain");
-
-    QWebEngineScriptCollection &pageScripts = webPage->scripts();
-    const QList<QWebEngineScript> existing = pageScripts.find("cosmeticDomain");
-    for (const QWebEngineScript &s : existing) pageScripts.remove(s);
-
-    if (!selectors.isEmpty()) {
-        QWebEngineScript script;
-        script.setName("cosmeticDomain");
-        script.setInjectionPoint(QWebEngineScript::DocumentCreation);
-        script.setWorldId(QWebEngineScript::MainWorld);
-        script.setRunsOnSubFrames(false);
-        script.setSourceCode(jsBody);
-        pageScripts.insert(script);
-    }
-
-    webPage->runJavaScript(jsBody);
-}
-
 void Browser::createToolbar() {
     toolbar = new QToolBar();
     toolbar->setMovable(false);
@@ -1449,7 +916,7 @@ void Browser::createToolbar() {
                     dlg->setAttribute(Qt::WA_DeleteOnClose);
                     dlg->setUpdateDownloadUrl(m_pendingUpdateDownloadUrl, m_pendingUpdateVersion);
 
-                    connect(dlg, &SettingsDialog::cookieDeleted, this, &Browser::deleteCookie);
+                    connect(dlg, &SettingsDialog::cookieDeleted, cookieManager, &CookieManager::deleteCookie);
                     connect(dlg, &SettingsDialog::themeChanged, this, &Browser::applyTheme);
                     connect(this, &Browser::themeChanged, dlg, [dlg](int index) {
                         dlg->updateTheme(index);
@@ -1481,9 +948,7 @@ void Browser::createToolbar() {
                         }
                     });
 
-                    connect(dlg, &SettingsDialog::adBlockToggled, this, [this](bool enabled){
-                        setAdBlockEnabled(enabled);
-                    });
+                    connect(dlg, &SettingsDialog::adBlockToggled, this, &Browser::onAdBlockToggled);
 
                     dlg->open();
                 });
@@ -1731,7 +1196,7 @@ void Browser::addNewTab() {
             renderController->request();
         }
 
-        applyCosmeticFiltersForPage(page, u.host());
+        adBlock->applyDomainCosmeticScript(page->webView()->page(), u.host());
     });
 
     connect(page->getStartPage(), &StartPage::focusUrlBarAndType, this, [this](const QString& text) {
@@ -1876,10 +1341,7 @@ void Browser::closeEvent(QCloseEvent* event) {
         profile->clearAllVisitedLinks();
     }
     // Flush pending debounced cookie save before shutting down
-    if (m_cookieSaveTimer && m_cookieSaveTimer->isActive()) {
-        m_cookieSaveTimer->stop();
-        saveCookiesToJson();
-    }
+    cookieManager->flush();
     QMainWindow::closeEvent(event);
 }
 
@@ -2021,138 +1483,25 @@ void Browser::openUrlInNewTab(const QString &urlStr) {
     }
 }
 
-void Browser::saveCookiesToJson() {
-    QJsonArray array;
+void Browser::onAdBlockToggled(bool enabled) {
+    adBlock->setEnabled(enabled);
 
-    for (const QNetworkCookie &cookie : cookieCache) {
-        QJsonObject obj;
-
-        obj["name"] = QString(cookie.name());
-        obj["value"] = QString(cookie.value());
-        obj["domain"] = cookie.domain();
-        obj["path"] = cookie.path();
-        obj["secure"] = cookie.isSecure();
-        obj["httpOnly"] = cookie.isHttpOnly();
-        obj["expiration"] = cookie.expirationDate().toSecsSinceEpoch();
-
-        array.append(obj);
-    }
-
-    QJsonDocument doc(array);
-
-    QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-    + "/cookies.json";
-
-        QFile file(path);
-        if (file.open(QIODevice::WriteOnly)) {
-            file.write(doc.toJson());
-            file.close();
-        }
-}
-
-void Browser::loadCookiesFromJson() {
-    QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/cookies.json";
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) return;
-
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-    file.close();
-
-    QJsonArray array = doc.array();
-    auto *store = profile->cookieStore();
-
-    for (const QJsonValue &val : array) {
-        QJsonObject obj = val.toObject();
-
-        QNetworkCookie cookie;
-        cookie.setName(obj["name"].toString().toUtf8());
-        cookie.setValue(obj["value"].toString().toUtf8());
-        cookie.setDomain(obj["domain"].toString());
-        cookie.setPath(obj["path"].toString());
-        cookie.setSecure(obj["secure"].toBool());
-        cookie.setHttpOnly(obj["httpOnly"].toBool());
-
-        qint64 exp = obj["expiration"].toVariant().toLongLong();
-        if (exp > 0)
-            cookie.setExpirationDate(QDateTime::fromSecsSinceEpoch(exp));
-
-        QString domain = obj["domain"].toString();
-        QString host = domain.startsWith('.') ? domain.mid(1) : domain;
-        QString scheme = obj["secure"].toBool() ? "https://" : "http://";
-
-        QString urlString = scheme + host;
-        QUrl url(urlString);
-        if (url.isValid()) {
-            store->setCookie(cookie, url);
-        } else {
-            qWarning() << "Invalid URL for cookie:" << urlString;
-        }
-    }
-}
-
-void Browser::setAdBlockEnabled(bool enabled) {
-    adBlocker->setEnabled(enabled);
-
-    QList<QWebEngineScript> existing = profile->scripts()->find("ytAdBlock");
-
-    if (enabled) {
-        if (existing.isEmpty()) {
-            QFile ytAdBlock(":/scripts/ytAdBlock.js");
-            if (ytAdBlock.open(QIODevice::ReadOnly)) {
-                QByteArray scriptCode = ytAdBlock.readAll();
-
-                QWebEngineScript ytAB;
-                ytAB.setName("ytAdBlock");
-                ytAB.setInjectionPoint(QWebEngineScript::DocumentCreation);
-                ytAB.setRunsOnSubFrames(false);
-                ytAB.setWorldId(QWebEngineScript::MainWorld);
-                ytAB.setSourceCode(QString::fromUtf8(scriptCode));
-
-                profile->scripts()->insert(ytAB);
-            }
-        }
-    } else {
-        for (const QWebEngineScript &s : existing) {
-            profile->scripts()->remove(s);
-        }
-    }
-    if (enabled) {
-        doRefreshCosmeticGenericScript();
-    } else {
-        const QList<QWebEngineScript> genericCosmetic = profile->scripts()->find("cosmeticGeneric");
-        for (const QWebEngineScript &s : genericCosmetic) profile->scripts()->remove(s);
-    }
-
-    // Constructor calls this before tabWidget exists yet (initial load of
-    // the saved adBlockEnabled setting) nothing to sync to at that point.
+    // Refresh the styling of already-open tabs; new pages pick it up on load.
     if (!tabWidget) return;
-
     for (int i = 0; i < tabWidget->count(); ++i) {
         TabPage* p = qobject_cast<TabPage*>(tabWidget->widget(i));
         if (!p || !p->webView() || !p->webView()->page()) continue;
         QWebEnginePage* webPage = p->webView()->page();
-
-        if (!enabled) {
-            const QList<QWebEngineScript> domainCosmetic = webPage->scripts().find("cosmeticDomain");
-            for (const QWebEngineScript &s : domainCosmetic) webPage->scripts().remove(s);
-
-            webPage->runJavaScript(
-                "document.getElementById('cosmeticGeneric')?.remove();"
-                "document.getElementById('cosmeticDomain')?.remove();"
-            );
-        } else {
-            applyCosmeticFiltersForPage(p, p->currentUrl().host());
-        }
+        if (enabled) adBlock->applyDomainCosmeticScript(webPage, p->currentUrl().host());
+        else adBlock->removeDomainCosmeticScript(webPage);
     }
 }
 
 void Browser::showSettings() {
     SettingsDialog *dialog = new SettingsDialog(profile, this);
 
-    connect(dialog, &SettingsDialog::cookieDeleted, this, &Browser::deleteCookie);
-    connect(dialog, &SettingsDialog::adBlockToggled, this, [this](bool enabled){
-        setAdBlockEnabled(enabled);
-    });
+    connect(dialog, &SettingsDialog::cookieDeleted, cookieManager, &CookieManager::deleteCookie);
+    connect(dialog, &SettingsDialog::adBlockToggled, this, &Browser::onAdBlockToggled);
 
     dialog->setUpdateDownloadUrl(m_pendingUpdateDownloadUrl, m_pendingUpdateVersion);
 
@@ -2192,21 +1541,6 @@ void Browser::onUpdateCheckFailed(const QString &error) {
     qWarning() << "Update check failed:" << error;
 }
 
-void Browser::deleteCookie(const QString &domain, const QString &name) {
-    for(int i = 0; i < cookieCache.size(); ++i) {
-        if(cookieCache[i].domain() == domain && cookieCache[i].name() == name) {
-            cookieCache.removeAt(i);
-            break;
-        }
-    }
-
-    QNetworkCookie dummy;
-    dummy.setName(name.toUtf8());
-    dummy.setDomain(domain);
-    profile->cookieStore()->deleteCookie(dummy);
-
-    saveCookiesToJson();
-}
 void Browser::updateSuggestions(const QString &text)
 {
     if (!suggestionList) return;
@@ -2316,377 +1650,6 @@ void Browser::removeBookmark(const QString& url) {
     updateFavoriteButtonStyle();
 }
 
-bool Browser::isExtensionEnabled(const QString &extId) const {
-    return !settings->value("extensions/disabled/" + extId, false).toBool();
-}
-
-void Browser::loadExtensions() {
-    QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
-    QDir rootDir(extRoot);
-
-    if (!rootDir.exists()) return;
-
-    QStringList subDirs = rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-
-    for (const QString &dirName : subDirs) {
-        if (m_extensionScriptNames.contains(dirName)) continue;
-        if (!isExtensionEnabled(dirName)) continue;
-
-        loadExtensionScripts(dirName);
-    }
-}
-
-QString Browser::chromePolyfillFor(const QString &extId, bool isBackground) const {
-    QString extIdEscaped = extId;
-    extIdEscaped.replace("\\", "\\\\").replace("'", "\\'");
-
-    return QStringLiteral(R"JS(
-(function() {
-    var extId = '%1';
-    var isBackground = %2;
-    var contextId = 'ctx_' + Math.random().toString(36).slice(2) + '_' + Date.now();
-
-    var listeners = [];
-    var installListeners = [];
-    var startupListeners = [];
-    var bridgeReady = null;
-    var pending = [];
-    var pendingCallbacks = {};
-    var reqCounter = 0;
-
-    function withBridge(fn) {
-        if (bridgeReady) { fn(bridgeReady); return; }
-        pending.push(fn);
-        if (window.__nullaChannelInitStarted) return;
-        window.__nullaChannelInitStarted = true;
-        function tryInit() {
-            if (window.qt && window.qt.webChannelTransport && window.QWebChannel) {
-                new QWebChannel(qt.webChannelTransport, function(channel) {
-                    bridgeReady = channel.objects.extensionBridge;
-
-                    bridgeReady.messageReceived.connect(function(msgExtId, requestId, messageJson) {
-                        if (msgExtId !== extId) return;
-
-                        var wrapper;
-                        try { wrapper = JSON.parse(messageJson); } catch (e) { wrapper = null; }
-                        if (!wrapper || wrapper.senderContextId === contextId) return;
-
-                        var message = wrapper.payload;
-                        var responded = false;
-                        function sendResponse(response) {
-                            if (responded) return;
-                            responded = true;
-                            try {
-                                bridgeReady.sendResponse(extId, requestId, JSON.stringify(response === undefined ? null : response));
-                            } catch (e) {}
-                        }
-
-                        listeners.forEach(function(fn) {
-                            try { fn(message, { id: extId }, sendResponse); } catch (e) {}
-                        });
-                    });
-
-                    bridgeReady.responseReceived.connect(function(msgExtId, requestId, responseJson) {
-                        if (msgExtId !== extId) return;
-                        var cb = pendingCallbacks[requestId];
-                        if (!cb) return;
-                        delete pendingCallbacks[requestId];
-                        var response;
-                        try { response = JSON.parse(responseJson); } catch (e) { response = responseJson; }
-                        try { cb(response); } catch (e) {}
-                    });
-
-                    pending.forEach(function(fn) { fn(bridgeReady); });
-                    pending = [];
-
-                    if (isBackground) {
-                        setTimeout(function() {
-                            installListeners.forEach(function(fn) { try { fn({ reason: 'install' }); } catch (e) {} });
-                            startupListeners.forEach(function(fn) { try { fn(); } catch (e) {} });
-                        }, 0);
-                    }
-                });
-            } else {
-                setTimeout(tryInit, 20);
-            }
-        }
-        tryInit();
-    }
-
-    var chromeObj = {
-        runtime: {
-            id: extId,
-            getURL: function(path) {
-                return 'nulla-extension://' + extId + '/' + String(path).replace(/^\//, '');
-            },
-            onMessage: {
-                addListener: function(fn) { listeners.push(fn); }
-            },
-            onInstalled: {
-                addListener: function(fn) { installListeners.push(fn); }
-            },
-            onStartup: {
-                addListener: function(fn) { startupListeners.push(fn); }
-            },
-            sendMessage: function(message, callback) {
-                withBridge(function(bridge) {
-                    var requestId = 'r' + (++reqCounter) + '_' + Date.now();
-                    if (typeof callback === 'function') {
-                        pendingCallbacks[requestId] = callback;
-                    }
-                    bridge.sendMessage(extId, requestId, JSON.stringify({ senderContextId: contextId, payload: message }));
-                });
-            }
-        },
-        storage: {
-            local: {
-                get: function(keys, callback) {
-                    withBridge(function(bridge) {
-                        bridge.storageGetAllJson(extId, function(rawJson) {
-                            var raw = {};
-                            try { raw = JSON.parse(rawJson || '{}'); } catch (e) {}
-                            var all = {};
-                            Object.keys(raw).forEach(function(k) {
-                                try { all[k] = JSON.parse(raw[k]); } catch (e) { all[k] = raw[k]; }
-                            });
-                            var result = {};
-                            if (!keys) { result = all; }
-                            else if (typeof keys === 'string') { result[keys] = all[keys]; }
-                            else if (Array.isArray(keys)) { keys.forEach(function(k) { result[k] = all[k]; }); }
-                            else if (typeof keys === 'object') {
-                                Object.keys(keys).forEach(function(k) { result[k] = (k in all) ? all[k] : keys[k]; });
-                            }
-                            if (callback) callback(result);
-                        });
-                    });
-                },
-                set: function(items, callback) {
-                    withBridge(function(bridge) {
-                        Object.keys(items).forEach(function(k) {
-                            bridge.storageSet(extId, k, JSON.stringify(items[k]));
-                        });
-                        if (callback) callback();
-                    });
-                },
-                remove: function(keys, callback) {
-                    withBridge(function(bridge) {
-                        var list = Array.isArray(keys) ? keys : [keys];
-                        list.forEach(function(k) { bridge.storageRemove(extId, k); });
-                        if (callback) callback();
-                    });
-                }
-            },
-            session: {
-                get: function(keys, callback) {
-                    withBridge(function(bridge) {
-                        bridge.sessionStorageGetAllJson(extId, function(rawJson) {
-                            var raw = {};
-                            try { raw = JSON.parse(rawJson || '{}'); } catch (e) {}
-                            var all = {};
-                            Object.keys(raw).forEach(function(k) {
-                                try { all[k] = JSON.parse(raw[k]); } catch (e) { all[k] = raw[k]; }
-                            });
-                            var result = {};
-                            if (!keys) { result = all; }
-                            else if (typeof keys === 'string') { result[keys] = all[keys]; }
-                            else if (Array.isArray(keys)) { keys.forEach(function(k) { result[k] = all[k]; }); }
-                            else if (typeof keys === 'object') {
-                                Object.keys(keys).forEach(function(k) { result[k] = (k in all) ? all[k] : keys[k]; });
-                            }
-                            if (callback) callback(result);
-                        });
-                    });
-                },
-                set: function(items, callback) {
-                    withBridge(function(bridge) {
-                        Object.keys(items).forEach(function(k) {
-                            bridge.sessionStorageSet(extId, k, JSON.stringify(items[k]));
-                        });
-                        if (callback) callback();
-                    });
-                },
-                remove: function(keys, callback) {
-                    withBridge(function(bridge) {
-                        var list = Array.isArray(keys) ? keys : [keys];
-                        list.forEach(function(k) { bridge.sessionStorageRemove(extId, k); });
-                        if (callback) callback();
-                    });
-                }
-            }
-        }
-    };
-
-    if (isBackground) {
-        chromeObj.tabs = {
-            query: function(queryInfo, callback) {
-                withBridge(function(bridge) {
-                    var pattern = (queryInfo && queryInfo.url) ? queryInfo.url : '<all_urls>';
-                bridge.queryTabs(pattern, function(tabsJson) {
-                    var tabs = [];
-                    try { tabs = JSON.parse(tabsJson || '[]'); } catch (e) {}
-                    if (callback) callback(tabs);
-                });
-                });
-            }
-        };
-
-        chromeObj.scripting = {
-            executeScript: function(details, callback) {
-                withBridge(function(bridge) {
-                    var tabId = (details && details.target) ? details.target.tabId : undefined;
-                    var fileName = (details && details.files && details.files.length) ? details.files[0] : null;
-                    if (tabId === undefined || !fileName) { if (callback) callback(); return; }
-                    bridge.executeScriptInTab(tabId, extId, fileName, function() {
-                        if (callback) callback();
-                    });
-                });
-                return Promise.resolve();
-            }
-        };
-
-        chromeObj.declarativeNetRequest = {
-            updateDynamicRules: function() {
-                console.warn('[NullA] chrome.declarativeNetRequest is not implemented natively yet; rule is ignored.');
-                return Promise.resolve();
-            }
-        };
-        chromeObj.webRequest = {
-            onHeadersReceived: {
-                addListener: function() {
-                    console.warn('[NullA] chrome.webRequest.onHeadersReceived is not implemented natively yet; listener will never fire.');
-                }
-            }
-        };
-        chromeObj.cookies = {
-            set: function() {
-                return Promise.resolve();
-            }
-        };
-    }
-
-    window.chrome = chromeObj;
-    window.browser = chromeObj;
-})();
-    )JS").arg(extIdEscaped, isBackground ? QStringLiteral("true") : QStringLiteral("false"));
-}
-
-void Browser::loadExtensionScripts(const QString &extId) {
-    QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
-    QString extPath = extRoot + "/" + extId;
-    QFile manifestFile(extPath + "/manifest.json");
-
-    if (!manifestFile.open(QIODevice::ReadOnly)) return;
-
-    QJsonDocument doc = QJsonDocument::fromJson(manifestFile.readAll());
-    QJsonObject json = doc.object();
-    manifestFile.close();
-
-    QStringList injectedNames;
-
-    if (json.contains("content_scripts")) {
-        QJsonArray scripts = json["content_scripts"].toArray();
-        for (int i = 0; i < scripts.size(); ++i) {
-            QJsonObject scriptObj = scripts[i].toObject();
-
-            if (scriptObj.contains("js")) {
-                QJsonArray jsFiles = scriptObj["js"].toArray();
-                for (int j = 0; j < jsFiles.size(); ++j) {
-                    QString jsFileName = jsFiles[j].toString();
-                    QFile jsFile(extPath + "/" + jsFileName);
-
-                    if (jsFile.open(QIODevice::ReadOnly)) {
-                        QString jsCode = QString::fromUtf8(jsFile.readAll());
-                        QString scriptName = extId + "_" + jsFileName;
-
-                        QString combined = chromePolyfillFor(extId) + "\n;\n" + jsCode;
-
-                        QWebEngineScript script;
-                        script.setSourceCode(combined);
-                        script.setName(scriptName);
-                        script.setInjectionPoint(QWebEngineScript::DocumentReady);
-                        script.setWorldId(QWebEngineScript::MainWorld);
-                        script.setRunsOnSubFrames(true);
-
-                        profile->scripts()->insert(script);
-                        injectedNames << scriptName;
-                        jsFile.close();
-                    }
-                }
-            }
-        }
-    }
-
-    m_extensionScriptNames[extId] = injectedNames;
-
-    if (json.contains("background")) {
-        loadExtensionBackground(extId, extPath, json);
-    }
-}
-
-void Browser::loadExtensionBackground(const QString &extId, const QString &extPath, const QJsonObject &manifestJson) {
-    QJsonObject bg = manifestJson.value("background").toObject();
-    QString swFile = bg.value("service_worker").toString();
-    if (swFile.isEmpty()) return;
-
-    QFile jsFile(extPath + "/" + swFile);
-    if (!jsFile.open(QIODevice::ReadOnly)) {
-        #ifdef DEBUG_MODE
-        qDebug() << "[Extensions] Background script not found for" << extId << ":" << swFile;
-        #endif
-        return;
-    }
-    QString jsCode = QString::fromUtf8(jsFile.readAll());
-    jsFile.close();
-
-    unloadExtensionBackground(extId);
-
-    QWebEnginePage *bgPage = new QWebEnginePage(profile, this);
-    bgPage->setWebChannel(ExtensionBridge::channel());
-
-    QString combined = chromePolyfillFor(extId, /*isBackground=*/true) + "\n;\n" + jsCode;
-
-    connect(bgPage, &QWebEnginePage::loadFinished, this, [bgPage, combined, extId](bool ok) {
-        if (!ok) {
-            #ifdef DEBUG_MODE
-            qDebug() << "[Extensions] Background page failed to load for" << extId;
-            #endif
-            return;
-        }
-        bgPage->runJavaScript(combined);
-    });
-
-    bgPage->setHtml(QStringLiteral("<!DOCTYPE html><html><head><title>background:%1</title></head><body></body></html>").arg(extId));
-
-    m_backgroundPages[extId] = bgPage;
-    #ifdef DEBUG_MODE
-    qDebug() << "[Extensions] Background page started for" << extId << "(" << swFile << ")";
-    #endif
-}
-
-void Browser::unloadExtensionBackground(const QString &extId) {
-    if (!m_backgroundPages.contains(extId)) return;
-    QWebEnginePage *page = m_backgroundPages.take(extId);
-    page->deleteLater();
-}
-
-void Browser::unloadExtensionScripts(const QString &extId) {
-    if (m_extensionScriptNames.contains(extId)) {
-        QWebEngineScriptCollection *collection = profile->scripts();
-        const QStringList names = m_extensionScriptNames.value(extId);
-
-        for (const QString &name : names) {
-            const QList<QWebEngineScript> found = collection->find(name);
-            for (const QWebEngineScript &s : found) {
-                collection->remove(s);
-            }
-        }
-
-        m_extensionScriptNames.remove(extId);
-    }
-
-    unloadExtensionBackground(extId);
-}
-
 QString Browser::queryTabsMatching(const QString &urlPattern) const {
     QJsonArray result;
     QRegularExpression re = matchPatternToRegex(urlPattern);
@@ -2722,36 +1685,9 @@ bool Browser::executeExtensionScriptInTab(int tabId, const QString &extId, const
     QString jsCode = QString::fromUtf8(jsFile.readAll());
     jsFile.close();
 
-    QString combined = chromePolyfillFor(extId, /*isBackground=*/false) + "\n;\n" + jsCode;
+    QString combined = ExtensionManager::chromePolyfillFor(extId, /*isBackground=*/false) + "\n;\n" + jsCode;
     page->webView()->page()->runJavaScript(combined);
     return true;
-}
-
-
-void Browser::setExtensionEnabled(const QString &extId, bool enabled) {
-    settings->setValue("extensions/disabled/" + extId, !enabled);
-
-    if (enabled) {
-        if (!m_extensionScriptNames.contains(extId)) {
-            loadExtensionScripts(extId);
-        }
-    } else {
-        unloadExtensionScripts(extId);
-    }
-}
-
-void Browser::extractZip(const QString &zipPath, const QString &destDir) {
-    QProcess process;
-    #ifdef Q_OS_WIN
-    QStringList arguments;
-    arguments << "-Command" << QString("Expand-Archive -Path '%1' -DestinationPath '%2' -Force").arg(zipPath, destDir);
-    process.start("powershell", arguments);
-    #else
-    QStringList arguments;
-    arguments << "-o" << zipPath << "-d" << destDir;
-    process.start("unzip", arguments);
-    #endif
-    process.waitForFinished(-1);
 }
 
 void Browser::setupExtensionsButton() {
@@ -2762,27 +1698,7 @@ void Browser::setupExtensionsButton() {
             [this](const QString &zipPath, const QString &extId,
                    const QString &name, const QString &description,
                    const QString &version, const QString &author) {
-                QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
-                QString destDir = extRoot + "/" + extId;
-                QDir().mkpath(destDir);
-
-                extractZip(zipPath, destDir);
-
-                QJsonObject meta;
-                meta["id"] = extId;
-                meta["name"] = name;
-                meta["description"] = description;
-                meta["version"] = version;
-                meta["author"] = author;
-
-                QFile metaFile(destDir + "/.nulla_store_meta.json");
-                if (metaFile.open(QIODevice::WriteOnly)) {
-                    metaFile.write(QJsonDocument(meta).toJson());
-                    metaFile.close();
-                }
-
-                loadExtensionScripts(extId);
-                QFile::remove(zipPath);
+                extensionManager->installExtension(zipPath, extId, name, description, version, author);
 
                 auto *box = new QMessageBox(QMessageBox::Information, "NullA Browser",
                                             Localization::qget("extension_install_success"), QMessageBox::Ok, this);
@@ -2792,10 +1708,7 @@ void Browser::setupExtensionsButton() {
 
     connect(store, &ExtensionStore::extensionUninstallRequested, this,
             [this](const QString &extId) {
-                unloadExtensionScripts(extId);
-
-                QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
-                QDir(extRoot + "/" + extId).removeRecursively();
+                extensionManager->uninstallExtension(extId);
 
                 auto *box = new QMessageBox(QMessageBox::Information, "NullA Browser",
                                             Localization::qget("extension_removed"), QMessageBox::Ok, this);
@@ -2805,7 +1718,7 @@ void Browser::setupExtensionsButton() {
 
     connect(store, &ExtensionStore::extensionToggleRequested, this,
             [this](const QString &extId, bool enabled) {
-                setExtensionEnabled(extId, enabled);
+                extensionManager->setExtensionEnabled(extId, enabled);
             });
 
     store->exec();

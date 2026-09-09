@@ -15,9 +15,7 @@
 #include <QMap>
 #include <QTimer>
 #include <QMenu>
-#include <QWebEngineCookieStore>
 #include <QListWidget>
-#include <QNetworkCookie>
 #include <QStatusBar>
 #include <QFileDialog>
 #include <QRandomGenerator>
@@ -36,7 +34,9 @@
 #include <QJsonObject>
 #include <QLabel>
 
-class Interceptor;
+class AdBlock;
+class ExtensionManager;
+class CookieManager;
 
 class Browser : public QMainWindow {
     Q_OBJECT
@@ -48,7 +48,6 @@ public:
     TabPage* currentTabPage();
 public slots:
     void showSettings();
-    void deleteCookie(const QString &domain, const QString &name);
     void updateSuggestions(const QString& text);
 
 signals:
@@ -89,7 +88,9 @@ private:
     QLineEdit* urlBar = nullptr;
     QToolBar* toolbar = nullptr;
     QWebEngineProfile* profile = nullptr;
-    Interceptor* adBlocker = nullptr;
+    AdBlock* adBlock = nullptr;
+    ExtensionManager* extensionManager = nullptr;
+    CookieManager* cookieManager = nullptr;
     QPushButton* plusButton = nullptr;
     QSettings* settings = nullptr;
     QListWidget* suggestionList = nullptr;
@@ -97,12 +98,6 @@ private:
     bool maydayActive = false;
     QMediaPlayer* maydayPlayer = nullptr;
     QAudioOutput* maydayAudio = nullptr;
-
-    QList<QNetworkCookie> cookieCache;
-    QTimer* m_cookieSaveTimer = nullptr;
-
-    void saveCookiesToJson();
-    void loadCookiesFromJson();
 
     void saveBookmarks();
     void loadBookmarks();
@@ -129,33 +124,13 @@ private:
     QMap<QString, QString> searchEngines;
     QString currentSearchEngine;
 
-    void loadExtensions();
-    void setExtensionEnabled(const QString &extId, bool enabled);
-    bool isExtensionEnabled(const QString &extId) const;
     void setupExtensionsButton();
     QToolButton* extensionsButton = nullptr;
 
-    void setAdBlockEnabled(bool enabled);
-
-    void refreshCosmeticGenericScript();
-    void doRefreshCosmeticGenericScript();
-    void applyCosmeticFiltersForPage(TabPage* page, const QString &host);
-
-    void loadExtensionScripts(const QString &extId);
-    QString chromePolyfillFor(const QString &extId, bool isBackground = false) const;
-    void unloadExtensionScripts(const QString &extId);
-    void extractZip(const QString &zipPath, const QString &destDir);
-
-    void loadExtensionBackground(const QString &extId, const QString &extPath, const QJsonObject &manifestJson);
-    void unloadExtensionBackground(const QString &extId);
+    void onAdBlockToggled(bool enabled);
 
     QString queryTabsMatching(const QString &urlPattern) const;
     bool executeExtensionScriptInTab(int tabId, const QString &extId, const QString &fileName);
-
-    QHash<QString, QStringList> m_extensionScriptNames;
-    QHash<QString, QWebEnginePage*> m_backgroundPages;
-
-    bool m_cosmeticRefreshPending = false;
 };
 
 #endif // BROWSER_H
