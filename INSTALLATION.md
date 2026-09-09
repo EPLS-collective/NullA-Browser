@@ -22,22 +22,22 @@ That's it, future updates can also be installed directly from inside the browser
 
 ## Linux
 
-Download, extract, and link the browser into your `PATH`:
+Install with the script from this repository:
 
 ```sh
-curl -fsSL -o NullA-Linux.tar.gz "$(curl -fsSL https://api.github.com/repos/EPLS-collective/NullA-Browser/releases/latest | grep browser_download_url | grep Linux | cut -d '"' -f4)"
-tar -xzf NullA-Linux.tar.gz
-mkdir -p ~/.local/share
-mv NullA ~/.local/share/NullA
-mkdir -p ~/.local/bin
-ln -sf ~/.local/share/NullA/NullA ~/.local/bin/nulla
-mkdir -p ~/.local/share/applications
-curl -fsSL "https://raw.githubusercontent.com/EPLS-collective/NullA-Browser/main/resources/nulla.desktop" | sed "s|HOME_PLACEHOLDER|$HOME|g" > ~/.local/share/applications/nulla.desktop
-curl -fsSL -o ~/.local/share/NullA/nulla_icon.png "https://raw.githubusercontent.com/EPLS-collective/NullA-Browser/main/resources/nulla_icon.png"
-update-desktop-database ~/.local/share/applications 2>/dev/null || true
+curl -fsSL https://raw.githubusercontent.com/EPLS-collective/NullA-Browser/main/installer/install-linux.sh | bash
 ```
 
-This also adds NullA to your app launcher/menu using the icon and `.desktop` file kept in this repository. Make sure `~/.local/bin` is in your `PATH`, then launch it with:
+This downloads the latest Linux build, installs it into `~/.local/share/NullA`, links a `nulla` command into `~/.local/bin` and adds a menu entry with the icon. Re-running it updates an existing install; your browsing data is never touched.
+
+If you'd rather inspect the script before running it:
+
+```sh
+curl -fsSL -o install-linux.sh https://raw.githubusercontent.com/EPLS-collective/NullA-Browser/main/installer/install-linux.sh
+bash install-linux.sh
+```
+
+Make sure `~/.local/bin` is in your `PATH`, then launch it with:
 
 ```sh
 nulla
@@ -59,14 +59,14 @@ Use **Settings -> Apps -> Installed apps** (or the old **Control Panel -> Progra
 
 ### Linux
 
+Run the matching uninstaller (download it first to inspect):
+
 ```sh
-rm -rf ~/.local/share/NullA
-rm -f ~/.local/bin/nulla
-rm -f ~/.local/share/applications/nulla.desktop
-update-desktop-database ~/.local/share/applications 2>/dev/null || true
+curl -fsSL -o uninstall-linux.sh https://raw.githubusercontent.com/EPLS-collective/NullA-Browser/main/installer/uninstall-linux.sh
+bash uninstall-linux.sh
 ```
 
-That removes the binary, the symlink, and the menu entry. NullA also keeps your settings and browsing data (cookies, bookmarks, cache, extensions, etc.) separately, in `~/.config/EPLS/` and `~/.local/share/EPLS/`, remove those two as well if you want a completely clean uninstall.
+That removes the binary, the symlink, and the menu entry. NullA also keeps your settings and browsing data (cookies, bookmarks, cache, extensions, etc.) separately, in `~/.config/EPLS/` and `~/.local/share/EPLS/`. Pass `--all` to the script to remove those two as well if you want a completely clean uninstall.
 
 ---
 
