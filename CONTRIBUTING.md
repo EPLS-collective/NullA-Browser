@@ -57,14 +57,14 @@ To check style locally:
 
 ---
 
-## Questions?
-
-Open an issue with the ```question``` tag.
-
----
-
 ## Principles
 
 NullA is not neutral. Contributions that serve surveillance, advertising networks, or corporate data harvesting will be rejected without discussion.
 
 This browser exists for users, not for profit
+
+---
+
+## Questions?
+
+Open an issue with the ```question``` tag.
