@@ -167,10 +167,26 @@ void UpdateChecker::installUpdate(const QString &archivePath) {
     }
     QTextStream out(&script);
     out << "@echo off\r\n";
+    out << "setlocal EnableDelayedExpansion\r\n";
+    out << "net session >nul 2>&1\r\n";
+    out << "if not \"!errorlevel!\"==\"0\" (\r\n";
+    out << "    if /I not \"%~1\"==\"-elevated\" (\r\n";
+    out << "        powershell -NoProfile -WindowStyle Hidden -Command \"Start-Process -FilePath '%~f0' -Verb RunAs -ArgumentList '-elevated'\"\r\n";
+    out << "        if not errorlevel 1 exit /b 0\r\n";
+    out << "    )\r\n";
+    out << "    start \"\" \"" << QDir::toNativeSeparators(appExe) << "\"\r\n";
+    out << "    del \"%~f0\"\r\n";
+    out << "    exit /b 1\r\n";
+    out << ")\r\n";
     out << "timeout /t 2 /nobreak >nul\r\n";
-    out << "mkdir \"" << QDir::toNativeSeparators(extractDir) << "\"\r\n";
+    out << "mkdir \"" << QDir::toNativeSeparators(extractDir) << "\" 2>nul\r\n";
     out << "tar -xf \"" << QDir::toNativeSeparators(archivePath) << "\" -C \"" << QDir::toNativeSeparators(extractDir) << "\"\r\n";
     out << "robocopy \"" << QDir::toNativeSeparators(extractDir) << "\\NullA\" \"" << QDir::toNativeSeparators(appDir) << "\" /E /IS /IT >nul\r\n";
+    out << "if errorlevel 8 (\r\n";
+    out << "    start \"\" \"" << QDir::toNativeSeparators(appExe) << "\"\r\n";
+    out << "    del \"%~f0\"\r\n";
+    out << "    exit /b 1\r\n";
+    out << ")\r\n";
     out << "start \"\" \"" << QDir::toNativeSeparators(appExe) << "\"\r\n";
     out << "rmdir /s /q \"" << QDir::toNativeSeparators(extractDir) << "\"\r\n";
     out << "del \"%~f0\"\r\n";

@@ -49,6 +49,12 @@
 #include <QKeyEvent>
 #include <QSet>
 #include <QHash>
+#include <QPainter>
+#include <QPainterPath>
+#include <QPixmap>
+#include <QIcon>
+#include <QColor>
+#include <cmath>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <dwmapi.h>
@@ -61,6 +67,37 @@ namespace {
         escaped.replace(QStringLiteral("\\*"), QStringLiteral(".*"));
         return QRegularExpression(QRegularExpression::anchoredPattern(escaped),
                                   QRegularExpression::CaseInsensitiveOption);
+    }
+
+    QIcon makeStarIcon(const QColor &color) {
+        const double pi = 3.14159265358979323846;
+        const int size = 64;
+        const double cx = size / 2.0, cy = size / 2.0;
+        const double outer = size * 0.3417, inner = size * 0.1437;
+
+        QPainterPath path;
+        for (int i = 0; i < 5; ++i) {
+            double a = -pi / 2 + i * 2 * pi / 5;
+            double b = a + pi / 5;
+            QPointF outerPt(cx + outer * std::cos(a), cy + outer * std::sin(a));
+            QPointF innerPt(cx + inner * std::cos(b), cy + inner * std::sin(b));
+            if (i == 0) path.moveTo(outerPt);
+            else path.lineTo(outerPt);
+            path.lineTo(innerPt);
+        }
+        path.closeSubpath();
+
+        QPixmap pm(size, size);
+        pm.setDevicePixelRatio(1.0);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush(color);
+        p.drawPath(path);
+        p.end();
+
+        return QIcon(pm);
     }
 }
 
@@ -758,7 +795,8 @@ void Browser::createToolbar() {
 
     urlLayout->addStretch();
 
-    favoriteButton = new QPushButton("★");
+    favoriteButton = new QPushButton();
+    favoriteButton->setObjectName("favoriteStar");
     favoriteButton->setFixedSize(24, 24);
     favoriteButton->setCursor(Qt::PointingHandCursor);
     favoriteButton->setStyleSheet(R"(
@@ -777,6 +815,8 @@ void Browser::createToolbar() {
         color: #888;
     }
     )");
+    favoriteButton->setIconSize(QSize(22, 22));
+    favoriteButton->setIcon(makeStarIcon(QColor("#888")));
 
     urlLayout->addWidget(favoriteButton);
     urlBar->setLayout(urlLayout);
@@ -817,7 +857,6 @@ void Browser::createToolbar() {
         updateBadge->setStyleSheet(R"(
             background-color: #2ecc71;
             border-radius: 5px;
-            border: 2px solid #1e2327;
         )");
         updateBadge->setAttribute(Qt::WA_TransparentForMouseEvents);
         updateBadge->setVisible(false);
@@ -863,6 +902,7 @@ void Browser::createToolbar() {
                         color: #888;
                     }
                     )");
+                    favoriteButton->setIcon(makeStarIcon(QColor("#888")));
                 } else {
                     bookmarks.append({title, url});
                     saveBookmarks();
@@ -884,6 +924,7 @@ void Browser::createToolbar() {
                         color: #ffaa00;
                     }
                     )");
+                    favoriteButton->setIcon(makeStarIcon(QColor("#ffaa00")));
                 }
 
                 QTimer::singleShot(2000, this, [this]() {
@@ -1040,6 +1081,7 @@ void Browser::updateFavoriteButtonStyle() {
                     color: #ffaa00;
                 }
             )");
+            favoriteButton->setIcon(makeStarIcon(QColor("#ffaa00")));
         } else {
             favoriteButton->setStyleSheet(R"(
                 QPushButton {
@@ -1057,6 +1099,7 @@ void Browser::updateFavoriteButtonStyle() {
                     color: #888;
                 }
             )");
+            favoriteButton->setIcon(makeStarIcon(QColor("#888")));
         }
     }
 }
