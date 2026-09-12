@@ -853,10 +853,10 @@ void Browser::createToolbar() {
     settingsButton = qobject_cast<QToolButton*>(toolbar->widgetForAction(settingsAction));
     if (settingsButton) {
         updateBadge = new QLabel(settingsButton);
-        updateBadge->setFixedSize(10, 10);
+        updateBadge->setFixedSize(8, 8);
         updateBadge->setStyleSheet(R"(
             background-color: #2ecc71;
-            border-radius: 5px;
+            border-radius: 4px;
         )");
         updateBadge->setAttribute(Qt::WA_TransparentForMouseEvents);
         updateBadge->setVisible(false);
@@ -998,8 +998,8 @@ void Browser::createToolbar() {
 void Browser::positionUpdateBadge() {
     if (!settingsButton || !updateBadge) return;
 
-    int x = settingsButton->width() - updateBadge->width() - 4;
-    int y = settingsButton->height() - updateBadge->height() - 8;
+    int x = settingsButton->width() - updateBadge->width() - 6;
+    int y = settingsButton->height() - updateBadge->height() - 10;
     updateBadge->move(x, y);
     updateBadge->raise();
 }
