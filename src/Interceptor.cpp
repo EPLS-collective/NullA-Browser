@@ -590,7 +590,46 @@ QStringList Interceptor::genericCosmeticSelectors() const {
     return selectors;
 }
 
+void Interceptor::setLoginUserAgent(const QString &ua) { m_loginUA = ua; }
+
+bool Interceptor::isAccountFlowUrl(const QUrl &url) {
+    const QString host = url.host().toLower();
+    const QString path = url.path().toLower();
+
+    if (host.contains("accounts.google") || host.contains("accounts.youtube")
+        || host.contains("accounts.microsoft") || host.endsWith(".apple.com")
+        || host == "login.microsoftonline.com" || host == "login.live.com"
+        || host == "steamcommunity.com" || host == "github.com"
+        || host == "gitlab.com" || host == "bitbucket.org"
+        || host == "twitter.com" || host == "x.com"
+        || host == "facebook.com" || host == "instagram.com"
+        || host == "discord.com" || host == "accounts.spotify.com"
+        || host == "auth0.com" || host == "okta.com")
+        return true;
+
+    if (path.startsWith("/login") || path.startsWith("/signin")
+        || path.startsWith("/sign-up") || path.startsWith("/signup")
+        || path.startsWith("/register") || path.startsWith("/oauth")
+        || path.startsWith("/authorize") || path.startsWith("/auth")
+        || path.startsWith("/sessions") || path.startsWith("/account"))
+        return true;
+
+    return false;
+}
+
 void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
+
+    // Rewrite User-Agent on login/account flows to a short Chrome identifier
+    // so the wire header (and server side) sees it, without triggering a
+    // WebContents reload (which setHttpUserAgent would do if called mid-nav).
+    if (!m_loginUA.isEmpty()) {
+        const int rt = info.resourceType();
+        if (rt == QWebEngineUrlRequestInfo::ResourceTypeMainFrame
+            || rt == QWebEngineUrlRequestInfo::ResourceTypeSubFrame) {
+            if (isAccountFlowUrl(info.requestUrl()))
+                info.setHttpHeader(QByteArrayLiteral("User-Agent"), m_loginUA.toUtf8());
+        }
+    }
 
     if (info.resourceType() == QWebEngineUrlRequestInfo::ResourceTypeMainFrame)
         return;

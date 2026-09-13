@@ -124,11 +124,28 @@ Browser::Browser(const QString &initialUrl) {
 
     cookieManager = new CookieManager(profile, this);
 
-    // Dynamic User-Agent fetching to match the latest stable Chrome version
-    auto *mgr = new QNetworkAccessManager(this);
+    // We use a non static User-Agent system for login verification (for some reason, Google login processes are not permitted in embedded browsers).
     QUrl url("https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json");
 
-    connect(mgr, &QNetworkAccessManager::finished, this, [this](QNetworkReply* reply) {
+    const QString engineUA = profile->httpUserAgent();
+    const QString chromeMarker = "Chrome/";
+    int chromeIdx = engineUA.indexOf(chromeMarker);
+    QString engineVer = chromeIdx >= 0
+        ? engineUA.mid(chromeIdx + chromeMarker.size()).section(' ', 0, 0)
+        : QStringLiteral("140.0.0.0");
+
+    const QString platform = QStringLiteral("(Windows NT 10.0; Win64; x64)");
+
+    const auto buildRealistic = [platform](const QString &ver) {
+        return QString("Mozilla/5.0 %1 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%2 Safari/537.36")
+            .arg(platform, ver);
+    };
+
+    m_loginUA = QString("Chrome/%1").arg(engineVer);
+    m_realisticUA = buildRealistic(engineVer);
+    profile->setHttpUserAgent(m_realisticUA);
+
+    connect(mgr, &QNetworkAccessManager::finished, this, [this, buildRealistic](QNetworkReply* reply) {
         if (reply->error() == QNetworkReply::NoError && profile) {
             QByteArray data = reply->readAll();
             QJsonDocument doc = QJsonDocument::fromJson(data);
@@ -139,11 +156,12 @@ Browser::Browser(const QString &initialUrl) {
             QString version = stable["version"].toString();
 
             if (!version.isEmpty()) {
-                QString newUA = QString("Chrome/%1").arg(version);
-
-                profile->setHttpUserAgent(newUA);
+                m_loginUA = QString("Chrome/%1").arg(version);
+                m_realisticUA = buildRealistic(version);
+                profile->setHttpUserAgent(m_realisticUA);
+                if (adBlock) adBlock->interceptor()->setLoginUserAgent(m_loginUA);
                 #ifdef DEBUG_MODE
-                qDebug() << "NullA UA:" << newUA;
+                qDebug() << "NullA UA:" << m_realisticUA;
                 #endif
             } else {
                 qWarning() << "Version information could not be retrieved.";
@@ -201,6 +219,7 @@ Browser::Browser(const QString &initialUrl) {
     // Ad-Blocker initialization and filter list fetching
     adBlock = new AdBlock(profile, this);
     adBlock->setEnabled(settings->value("adBlockEnabled", true).toBool());
+    adBlock->interceptor()->setLoginUserAgent(m_loginUA);
     adBlock->fetchFilterLists(manager);
     adBlock->fetchPublicSuffixData(manager);
 
@@ -1339,7 +1358,6 @@ void Browser::closeTab(int index) {
 TabPage* Browser::currentTabPage() {
     return qobject_cast<TabPage*>(tabWidget->currentWidget());
 }
-
 
 bool Browser::isSystemDarkTheme() {
     // Cross-platform check for system-wide dark mode.

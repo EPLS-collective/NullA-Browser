@@ -107,6 +107,9 @@ public:
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }
 
+    void setLoginUserAgent(const QString &ua);
+    static bool isAccountFlowUrl(const QUrl &url);
+
     static uint32_t categoryForResourceType(int resourceType);
     static uint16_t methodForString(const QByteArray &method);
     static void loadPublicSuffixData(const QByteArray &data);
@@ -188,6 +191,7 @@ private:
     std::vector<std::u16string> cosmeticGenericSelectors;
     std::unordered_set<std::u16string> cosmeticGenericExceptions;
     mutable QReadWriteLock cosmeticMutex;
+    QString m_loginUA;
 };
 
 #endif // INTERCEPTOR_H
