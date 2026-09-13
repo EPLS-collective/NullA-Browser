@@ -125,6 +125,7 @@ Browser::Browser(const QString &initialUrl) {
     cookieManager = new CookieManager(profile, this);
 
     // We use a non static User-Agent system for login verification (for some reason, Google login processes are not permitted in embedded browsers).
+    auto *mgr = new QNetworkAccessManager(this);
     QUrl url("https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json");
 
     const QString engineUA = profile->httpUserAgent();
