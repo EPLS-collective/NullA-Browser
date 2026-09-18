@@ -61,6 +61,14 @@ StartPage::StartPage(QWidget* parent) : QWidget(parent) {
     connect(searchEdit, &QLineEdit::returnPressed, this, [this]() {
         emit navigateToCurrentUrl();
     });
+
+    connect(searchEdit, &QLineEdit::textChanged, this, [this](const QString& text) {
+        if (text.isEmpty()) return;
+        emit focusUrlBarAndType(text);
+        searchEdit->blockSignals(true);
+        searchEdit->clear();
+        searchEdit->blockSignals(false);
+    });
 }
 
 bool StartPage::eventFilter(QObject* obj, QEvent* event) {
