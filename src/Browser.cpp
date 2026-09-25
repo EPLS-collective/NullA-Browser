@@ -54,6 +54,7 @@
 #include <QPixmap>
 #include <QIcon>
 #include <QColor>
+#include <QFile>
 #include <cmath>
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -105,7 +106,7 @@ Browser::Browser(const QString &initialUrl) {
 
     // Main window configuration
     setWindowTitle("NullA Browser");
-    setWindowIcon(QIcon(":/nulla_icon.png"));
+    setWindowIcon(QIcon(":/icons/nulla_icon.png"));
     resize(854, 480);
 
     settings = new QSettings("NullA", "Browser", this);
@@ -574,6 +575,7 @@ void Browser::applyTheme(int themeIndex) {
     }
 
     // Toolbar
+    const QString themeIconColor = isDark ? QStringLiteral("#e6e6e6") : QStringLiteral("#333333");
     toolbar->setStyleSheet(QString(R"(
         QToolBar {
             background-color: %1;
@@ -595,10 +597,12 @@ void Browser::applyTheme(int themeIndex) {
         }
     )")
     .arg(isDark ? "#2c2c2c" : "#ececec")
-    .arg(isDark ? "#e6e6e6" : "#333333")
+    .arg(themeIconColor)
     .arg(isDark ? "#3a3a3a" : "#dcdcdc")
     .arg(isDark ? "#4a4a4a" : "#c8c8c8")
     );
+
+    applyToolbarIcons(QColor(themeIconColor));
 
     // URL Bar
     urlBar->setStyleSheet(QString(R"(
@@ -701,6 +705,9 @@ void Browser::applyTheme(int themeIndex) {
     // Plus (New Tab) Button
     if (TabBar* bar = qobject_cast<TabBar*>(tabWidget->tabBar())) {
         if (bar->plusButton) {
+            bar->plusButton->setIcon(themedSvgIcon(":/UI/plus.svg", QColor(themeIconColor), 18));
+            bar->plusButton->setIconSize(QSize(18, 18));
+            bar->plusButton->setText(QString());
             bar->plusButton->setStyleSheet(QString(R"(
                 QPushButton {
                     background-color: %1;
@@ -717,7 +724,7 @@ void Browser::applyTheme(int themeIndex) {
                 }
             )")
             .arg(isDark ? "#222222" : "#dcdcdc")
-            .arg(isDark ? "#e6e6e6" : "#333333")
+            .arg(themeIconColor)
             .arg(isDark ? "#3a3a3a" : "#e0e0e0")
             .arg(isDark ? "#4a4a4a" : "#c8c8c8")
             );
@@ -791,6 +798,33 @@ void Browser::applyTheme(int themeIndex) {
     }
 }
 
+QIcon Browser::themedSvgIcon(const QString &resPath, const QColor &color, int size) {
+    QFile f(resPath);
+    if (!f.open(QIODevice::ReadOnly)) return QIcon();
+    QString svg = QString::fromUtf8(f.readAll());
+    svg.replace(QStringLiteral("currentColor"), color.name());
+    svg.replace(QRegularExpression(QStringLiteral("width=\"\\d+\""), QRegularExpression::CaseInsensitiveOption),
+                QStringLiteral("width=\"%1\"").arg(size));
+    svg.replace(QRegularExpression(QStringLiteral("height=\"\\d+\""), QRegularExpression::CaseInsensitiveOption),
+                QStringLiteral("height=\"%1\"").arg(size));
+
+    const QString tmpPath = QDir::temp().filePath(QStringLiteral("NullA_") + QFileInfo(resPath).baseName() + QStringLiteral(".svg"));
+    QFile tmp(tmpPath);
+    if (!tmp.open(QIODevice::WriteOnly | QIODevice::Truncate)) return QIcon();
+    tmp.write(svg.toUtf8());
+    tmp.close();
+
+    return QIcon(tmpPath);
+}
+
+void Browser::applyToolbarIcons(const QColor &color) {
+    if (m_backAction) m_backAction->setIcon(themedSvgIcon(":/UI/move-left.svg", color, 18));
+    if (m_forwardAction) m_forwardAction->setIcon(themedSvgIcon(":/UI/move-right.svg", color, 18));
+    if (m_reloadAction) m_reloadAction->setIcon(themedSvgIcon(":/UI/rotate.svg", color, 18));
+    if (m_extensionsAction) m_extensionsAction->setIcon(themedSvgIcon(":/UI/puzzle.svg", color, 18));
+    if (m_settingsAction) m_settingsAction->setIcon(themedSvgIcon(":/UI/menu.svg", color, 18));
+}
+
 void Browser::createToolbar() {
     toolbar = new QToolBar();
     toolbar->setMovable(false);
@@ -802,9 +836,15 @@ void Browser::createToolbar() {
         toolbar->layout()->setContentsMargins(0, 0, 0, 0);
     }
 
-    QAction* backAction = toolbar->addAction("←");
-    QAction* forwardAction = toolbar->addAction("→");
-    QAction* reloadAction = toolbar->addAction("⟳");
+    auto addIconAction = [this]() {
+        QAction* action = new QAction(this);
+        toolbar->addAction(action);
+        return action;
+    };
+
+    m_backAction = addIconAction();
+    m_forwardAction = addIconAction();
+    m_reloadAction = addIconAction();
 
     urlBar = new QLineEdit(this);
     urlBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -843,18 +883,18 @@ void Browser::createToolbar() {
 
     toolbar->addWidget(urlBar);
 
-    QAction* extensionsAction = toolbar->addAction("</>");
-    extensionsButton = qobject_cast<QToolButton*>(toolbar->widgetForAction(extensionsAction));
+    m_extensionsAction = addIconAction();
+    extensionsButton = qobject_cast<QToolButton*>(toolbar->widgetForAction(m_extensionsAction));
 
     if (extensionsButton) {
         extensionsButton->setCursor(Qt::PointingHandCursor);
         connect(extensionsButton, &QToolButton::clicked, this, &Browser::setupExtensionsButton);
     }
 
-    QAction* settingsAction = toolbar->addAction("☰");
+    m_settingsAction = addIconAction();
 
     int buttonHeight = 44;
-    toolbar->setIconSize(QSize(buttonHeight, buttonHeight));
+    toolbar->setIconSize(QSize(18, 18));
 
     for (QAction* action : toolbar->actions()) {
         if (QToolButton* btn = qobject_cast<QToolButton*>(toolbar->widgetForAction(action))) {
@@ -870,7 +910,7 @@ void Browser::createToolbar() {
         }
     }
 
-    settingsButton = qobject_cast<QToolButton*>(toolbar->widgetForAction(settingsAction));
+    settingsButton = qobject_cast<QToolButton*>(toolbar->widgetForAction(m_settingsAction));
     if (settingsButton) {
         updateBadge = new QLabel(settingsButton);
         updateBadge->setFixedSize(8, 8);
@@ -956,21 +996,21 @@ void Browser::createToolbar() {
         }
     });
 
-    connect(backAction, &QAction::triggered, this, [this]() {
+    connect(m_backAction, &QAction::triggered, this, [this]() {
         if (auto* p = currentTabPage()) p->goBack();
     });
 
-        connect(forwardAction, &QAction::triggered, this, [this]() {
+        connect(m_forwardAction, &QAction::triggered, this, [this]() {
             if (auto* p = currentTabPage()) p->goForward();
         });
 
-            connect(reloadAction, &QAction::triggered, this, [this]() {
+            connect(m_reloadAction, &QAction::triggered, this, [this]() {
                 if (auto* p = currentTabPage()) p->webView()->reload();
             });
 
                 connect(urlBar, &QLineEdit::returnPressed, this, &Browser::handleUrlBarSubmit);
 
-                connect(settingsAction, &QAction::triggered, this, [this]() {
+                connect(m_settingsAction, &QAction::triggered, this, [this]() {
                     if (updateBadge) updateBadge->setVisible(false);
 
                     SettingsDialog* dlg = new SettingsDialog(profile, this);
@@ -1142,7 +1182,7 @@ void Browser::addNewTab() {
     bool isDark = (currentTheme == 1);
     page->applyTheme(isDark);
 
-    int index = tabWidget->addTab(page, QIcon(":/nulla_icon.png"), Localization::qget("new_tab"));
+    int index = tabWidget->addTab(page, QIcon(":/icons/nulla_icon.png"), Localization::qget("new_tab"));
 
     TabBar* bar = qobject_cast<TabBar*>(tabWidget->tabBar());
     if (bar) {
@@ -1287,7 +1327,7 @@ void Browser::addNewTab() {
             if (!icon.isNull()) {
                 tabWidget->setTabIcon(i, icon);
             } else {
-                tabWidget->setTabIcon(i, QIcon(":/nulla_icon.png"));
+                tabWidget->setTabIcon(i, QIcon(":/icons/nulla_icon.png"));
             }
         }
     });

@@ -100,7 +100,7 @@ TabPage::TabPage(QWebEngineProfile* profile, QWidget* parent) : QStackedWidget(p
 
         QTimer::singleShot(300, this, [this]() {
             if (currentIndex() != 1) return;
-            emit iconChanged(view->icon().isNull() ? QIcon(":/nulla_icon.png") : view->icon());
+            emit iconChanged(view->icon().isNull() ? QIcon(":/icons/nulla_icon.png") : view->icon());
         });
     });
 }
@@ -114,7 +114,7 @@ void TabPage::goBack() {
             setCurrentIndex(0);
             emit urlChanged(QUrl(""));
             emit titleChanged(Localization::qget("new_tab"));
-            emit iconChanged(QIcon(":/nulla_icon.png"));
+            emit iconChanged(QIcon(":/icons/nulla_icon.png"));
         }
     }
 }
@@ -124,7 +124,7 @@ void TabPage::goForward() {
         setCurrentIndex(1);
         emit titleChanged(view->title());
         emit urlChanged(view->url());
-        emit iconChanged(view->icon().isNull() ? QIcon(":/nulla_icon.png") : view->icon());
+        emit iconChanged(view->icon().isNull() ? QIcon(":/icons/nulla_icon.png") : view->icon());
     } else if (currentIndex() == 1) {
         view->forward();
     }

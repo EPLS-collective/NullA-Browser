@@ -25,7 +25,7 @@ TabBar::TabBar(QWidget* parent) : QTabBar(parent), plusButton(nullptr), hoveredC
     setMouseTracking(true);
     setMinimumHeight(32);
 
-    plusButton = new QPushButton("+", this);
+    plusButton = new QPushButton(this);
     plusButton->setCursor(Qt::PointingHandCursor);
     plusButton->setFocusPolicy(Qt::NoFocus);
     plusButton->setVisible(false);

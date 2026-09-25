@@ -1,9 +1,15 @@
 <RCC>
     <qresource prefix="/">
-        <file>nulla_icon.png</file>
-        <file>nulla_icon.svg</file>
-        <file>nulla_icon.ico</file>
+        <file>icons/nulla_icon.png</file>
+        <file>icons/nulla_icon.svg</file>
+        <file>icons/nulla_icon.ico</file>
         <file>nulla_load.png</file>
         <file>mayday/a_las_barricadas.ogg</file>
+        <file>UI/menu.svg</file>
+        <file>UI/move-left.svg</file>
+        <file>UI/move-right.svg</file>
+        <file>UI/plus.svg</file>
+        <file>UI/puzzle.svg</file>
+        <file>UI/rotate.svg</file>
     </qresource>
 </RCC>

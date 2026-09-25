@@ -9,6 +9,9 @@
 #define BROWSER_H
 
 #include <QMainWindow>
+#include <QIcon>
+#include <QColor>
+#include <QAction>
 #include <QWebEngineProfile>
 #include <QWebEngineDownloadRequest>
 #include <QSettings>
@@ -74,9 +77,10 @@ private slots:
 private:
     bool isFullscreen = false;
     void createToolbar();
-    void updatePlusButtonPosition();
     bool isSystemDarkTheme();
     QString getTerminalProgress(qint64 received, qint64 total);
+    QIcon themedSvgIcon(const QString &resPath, const QColor &color, int size);
+    void applyToolbarIcons(const QColor &color);
 
     QMap<QWebEngineDownloadRequest*, QString> activeDownloadMessages;
     bool isWaitingForCancelInput = false;
@@ -87,11 +91,15 @@ private:
     TabWidget* tabWidget = nullptr;
     QLineEdit* urlBar = nullptr;
     QToolBar* toolbar = nullptr;
+    QAction* m_backAction = nullptr;
+    QAction* m_forwardAction = nullptr;
+    QAction* m_reloadAction = nullptr;
+    QAction* m_extensionsAction = nullptr;
+    QAction* m_settingsAction = nullptr;
     QWebEngineProfile* profile = nullptr;
     AdBlock* adBlock = nullptr;
     ExtensionManager* extensionManager = nullptr;
     CookieManager* cookieManager = nullptr;
-    QPushButton* plusButton = nullptr;
     QSettings* settings = nullptr;
     QListWidget* suggestionList = nullptr;
     QList<QPair<QString, QString>> bookmarks;

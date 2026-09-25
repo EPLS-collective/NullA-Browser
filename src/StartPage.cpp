@@ -25,7 +25,7 @@ StartPage::StartPage(QWidget* parent) : QWidget(parent) {
     nullLabel->setStyleSheet("font-size: 32px; font-weight: bold; background: none;");
 
     iconLabel = new QLabel();
-    QSvgRenderer renderer(QString(":/nulla_icon.svg"));
+    QSvgRenderer renderer(QString(":/icons/nulla_icon.svg"));
 
     QPixmap iconPix(32, 32);
     iconPix.fill(Qt::transparent);
