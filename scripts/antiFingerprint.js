@@ -39,7 +39,38 @@
         delete Navigator.prototype.getBattery;
     }
     if (navigator.userAgentData) {
-        delete Navigator.prototype.userAgentData;
+        const CHROME_MAJOR = "__NULLA_CHROME_MAJOR__";
+        const fakeBrands = [
+            { brand: "Not)A;Brand", version: "99" },
+            { brand: "Google Chrome", version: CHROME_MAJOR },
+            { brand: "Chromium", version: CHROME_MAJOR }
+        ];
+        const fakeFullVersionList = [
+            { brand: "Not)A;Brand", version: "99.0.0.0" },
+            { brand: "Google Chrome", version: CHROME_MAJOR + ".0.0.0" },
+            { brand: "Chromium", version: CHROME_MAJOR + ".0.0.0" }
+        ];
+        const fakeUAData = {
+            brands: fakeBrands,
+            mobile: false,
+            platform: "Windows",
+            toJSON: seal(function() {
+                return { brands: fakeBrands, mobile: false, platform: "Windows" };
+            }),
+            getHighEntropyValues: seal(function() {
+                return Promise.resolve({
+                    brands: fakeBrands,
+                    mobile: false,
+                    platform: "Windows",
+                    platformVersion: "10.0.0",
+                    architecture: "x86",
+                    bitness: "64",
+                    fullVersionList: fakeFullVersionList,
+                    uaFullVersion: CHROME_MAJOR + ".0.0.0"
+                });
+            })
+        };
+        mask(navigator, 'userAgentData', fakeUAData);
     }
 
     // Per-page-session seed: the canvas noise stays identical for every call

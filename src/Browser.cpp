@@ -138,16 +138,48 @@ Browser::Browser(const QString &initialUrl) {
 
     const QString platform = QStringLiteral("(Windows NT 10.0; Win64; x64)");
 
-    const auto buildRealistic = [platform](const QString &ver) {
-        return QString("Mozilla/5.0 %1 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%2 Safari/537.36")
-            .arg(platform, ver);
+    const auto extractMajor = [](const QString &fullVer) {
+        return fullVer.section('.', 0, 0);
     };
 
-    m_loginUA = QString("Chrome/%1").arg(engineVer);
-    m_realisticUA = buildRealistic(engineVer);
-    profile->setHttpUserAgent(m_realisticUA);
+    const auto buildRealistic = [platform](const QString &major) {
+        return QString("Mozilla/5.0 %1 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%2.0.0.0 Safari/537.36")
+            .arg(platform, major);
+    };
 
-    connect(mgr, &QNetworkAccessManager::finished, this, [this, buildRealistic](QNetworkReply* reply) {
+    const auto injectAntiFingerprintScript = [this](const QString &major) {
+        QFile antiFingerprint(":/scripts/antiFingerprint.js");
+        if (!antiFingerprint.open(QIODevice::ReadOnly)) return;
+
+        QString scriptCode = QString::fromUtf8(antiFingerprint.readAll());
+        scriptCode.replace("__NULLA_CHROME_MAJOR__", major);
+
+        const auto oldScripts = profile->scripts()->find("antiFingerprint");
+        for (const auto &oldScript : oldScripts) {
+            profile->scripts()->remove(oldScript);
+        }
+
+        // Injecting anti-fingerprinting script at document creation
+
+        QWebEngineScript antiFP;
+        antiFP.setName("antiFingerprint");
+        antiFP.setInjectionPoint(QWebEngineScript::DocumentCreation);
+        antiFP.setRunsOnSubFrames(true);
+        antiFP.setWorldId(QWebEngineScript::MainWorld);
+        antiFP.setSourceCode(scriptCode);
+
+        profile->scripts()->insert(antiFP);
+    };
+
+    const QString cachedMajor = settings->value("lastChromeMajor").toString();
+    const QString initialMajor = !cachedMajor.isEmpty() ? cachedMajor : extractMajor(engineVer);
+
+    m_loginUA = QString("Chrome/%1.0.0.0").arg(initialMajor);
+    m_realisticUA = buildRealistic(initialMajor);
+    profile->setHttpUserAgent(m_realisticUA);
+    injectAntiFingerprintScript(initialMajor);
+
+    connect(mgr, &QNetworkAccessManager::finished, this, [this, buildRealistic, extractMajor, injectAntiFingerprintScript](QNetworkReply* reply) {
         if (reply->error() == QNetworkReply::NoError && profile) {
             QByteArray data = reply->readAll();
             QJsonDocument doc = QJsonDocument::fromJson(data);
@@ -158,9 +190,12 @@ Browser::Browser(const QString &initialUrl) {
             QString version = stable["version"].toString();
 
             if (!version.isEmpty()) {
-                m_loginUA = QString("Chrome/%1").arg(version);
-                m_realisticUA = buildRealistic(version);
+                const QString major = extractMajor(version);
+                m_loginUA = QString("Chrome/%1.0.0.0").arg(major);
+                m_realisticUA = buildRealistic(major);
                 profile->setHttpUserAgent(m_realisticUA);
+                injectAntiFingerprintScript(major);
+                settings->setValue("lastChromeMajor", major);
                 if (adBlock) adBlock->interceptor()->setLoginUserAgent(m_loginUA);
                 #ifdef DEBUG_MODE
                 qDebug() << "NullA UA:" << m_realisticUA;
@@ -196,21 +231,6 @@ Browser::Browser(const QString &initialUrl) {
     profile->settings()->setAttribute(QWebEngineSettings::WebAttribute::LocalContentCanAccessRemoteUrls, false);
     profile->settings()->setAttribute(QWebEngineSettings::FocusOnNavigationEnabled, false);
     profile->settings()->setAttribute(QWebEngineSettings::AllowRunningInsecureContent, false);
-
-    // Injecting anti-fingerprinting script at document creation
-    QFile antiFingerprint(":/scripts/antiFingerprint.js");
-    if(antiFingerprint.open(QIODevice::ReadOnly)) {
-        QByteArray scriptCode = antiFingerprint.readAll();
-
-        QWebEngineScript antiFP;
-        antiFP.setName("antiFingerprint");
-        antiFP.setInjectionPoint(QWebEngineScript::DocumentCreation);
-        antiFP.setRunsOnSubFrames(true);
-        antiFP.setWorldId(QWebEngineScript::MainWorld);
-        antiFP.setSourceCode(QString::fromUtf8(scriptCode));
-
-        profile->scripts()->insert(antiFP);
-    }
 
     m_downloadManager = DownloadManager::instance();
 
