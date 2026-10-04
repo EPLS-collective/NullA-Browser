@@ -16,7 +16,6 @@
 #include "../include/ExtensionStore.h"
 #include "../include/ExtensionBridge.h"
 #include "../include/UpdateChecker.h"
-#include <QNetworkAccessManager>
 #include <QWebEngineFullScreenRequest>
 #include <QWebEngineSettings>
 #include <QWebEnginePermission>
@@ -25,8 +24,6 @@
 #include <QWebEngineProfile>
 #include <QWebEnginePage>
 #include <QCheckBox>
-#include <QNetworkReply>
-#include <QNetworkRequest>
 #include <QVBoxLayout>
 #include <QAction>
 #include <QDebug>
@@ -37,15 +34,19 @@
 #include <QToolButton>
 #include <QFontDatabase>
 #include <QShortcut>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QJsonArray>
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QHostAddress>
+#include <QAbstractSocket>
 #include <QRegularExpression>
+#include <QRandomGenerator>
 #include <QKeyEvent>
 #include <QSet>
 #include <QHash>
@@ -125,92 +126,73 @@ Browser::Browser(const QString &initialUrl) {
 
     cookieManager = new CookieManager(profile, this);
 
-    // We use a non static User-Agent system for login verification (for some reason, Google login processes are not permitted in embedded browsers).
-    auto *mgr = new QNetworkAccessManager(this);
-    QUrl url("https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json");
-
     const QString engineUA = profile->httpUserAgent();
-    const QString chromeMarker = "Chrome/";
-    int chromeIdx = engineUA.indexOf(chromeMarker);
-    QString engineVer = chromeIdx >= 0
-        ? engineUA.mid(chromeIdx + chromeMarker.size()).section(' ', 0, 0)
-        : QStringLiteral("140.0.0.0");
 
-    const QString platform = QStringLiteral("(Windows NT 10.0; Win64; x64)");
+    // Take QtWebEngine's UA verbatim, strip only the QtWebEngine/ token
+    QString ua = engineUA;
+    ua.remove(QRegularExpression(QStringLiteral("\\s*Qt(?:WebEngine)?/\\S+")));
 
-    const auto extractMajor = [](const QString &fullVer) {
-        return fullVer.section('.', 0, 0);
-    };
-
-    const auto buildRealistic = [platform](const QString &major) {
-        return QString("Mozilla/5.0 %1 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%2.0.0.0 Safari/537.36")
-            .arg(platform, major);
-    };
-
-    const auto injectAntiFingerprintScript = [this](const QString &major) {
-        QFile antiFingerprint(":/scripts/antiFingerprint.js");
-        if (!antiFingerprint.open(QIODevice::ReadOnly)) return;
-
-        QString scriptCode = QString::fromUtf8(antiFingerprint.readAll());
-        scriptCode.replace("__NULLA_CHROME_MAJOR__", major);
-
-        const auto oldScripts = profile->scripts()->find("antiFingerprint");
-        for (const auto &oldScript : oldScripts) {
-            profile->scripts()->remove(oldScript);
-        }
-
-        // Injecting anti-fingerprinting script at document creation
-
-        QWebEngineScript antiFP;
-        antiFP.setName("antiFingerprint");
-        antiFP.setInjectionPoint(QWebEngineScript::DocumentCreation);
-        antiFP.setRunsOnSubFrames(true);
-        antiFP.setWorldId(QWebEngineScript::MainWorld);
-        antiFP.setSourceCode(scriptCode);
-
-        profile->scripts()->insert(antiFP);
-    };
-
-    const QString cachedMajor = settings->value("lastChromeMajor").toString();
-    const QString initialMajor = !cachedMajor.isEmpty() ? cachedMajor : extractMajor(engineVer);
-
-    m_loginUA = QString("Chrome/%1.0.0.0").arg(initialMajor);
-    m_realisticUA = buildRealistic(initialMajor);
+    m_realisticUA = ua;
     profile->setHttpUserAgent(m_realisticUA);
-    injectAntiFingerprintScript(initialMajor);
 
-    connect(mgr, &QNetworkAccessManager::finished, this, [this, buildRealistic, extractMajor, injectAntiFingerprintScript](QNetworkReply* reply) {
-        if (reply->error() == QNetworkReply::NoError && profile) {
-            QByteArray data = reply->readAll();
-            QJsonDocument doc = QJsonDocument::fromJson(data);
+    // Extract Chrome major.minor from the global UA so we never hardcode 140
+    int chromeAt = m_realisticUA.indexOf(QStringLiteral("Chrome/"));
+    QString chromeVer;
+    if (chromeAt >= 0) {
+        chromeVer = m_realisticUA.mid(chromeAt + 7).section(QLatin1Char(' '), 0, 0);
+    } else {
+        chromeAt = engineUA.indexOf(QStringLiteral("Chrome/"));
+        chromeVer = (chromeAt >= 0)
+            ? engineUA.mid(chromeAt + 7).section(QLatin1Char(' '), 0, 0)
+            : QStringLiteral("140.0.0.0");
+    }
+    // If we only got major, pad
+    if (chromeVer.count(QLatin1Char('.')) < 2)
+        chromeVer = chromeVer.section(QLatin1Char('.'), 0, 0) + QStringLiteral(".0.0.0");
 
-            QJsonObject root = doc.object();
-            QJsonObject channels = root["channels"].toObject();
-            QJsonObject stable = channels["Stable"].toObject();
-            QString version = stable["version"].toString();
+    // Google header UA: minimal, but use the engine's Chrome version
+    const QString googleUA = QStringLiteral("Chrome/") + chromeVer;
+    Interceptor::setUserAgentOverride(QStringLiteral("accounts.google.com"), googleUA);
 
-            if (!version.isEmpty()) {
-                const QString major = extractMajor(version);
-                m_loginUA = QString("Chrome/%1.0.0.0").arg(major);
-                m_realisticUA = buildRealistic(major);
-                profile->setHttpUserAgent(m_realisticUA);
-                injectAntiFingerprintScript(major);
-                settings->setValue("lastChromeMajor", major);
-                if (adBlock) adBlock->interceptor()->setLoginUserAgent(m_loginUA);
-                #ifdef DEBUG_MODE
-                qDebug() << "NullA UA:" << m_realisticUA;
-                #endif
-            } else {
-                qWarning() << "Version information could not be retrieved.";
-            }
-        } else {
-            qWarning() << "Network ERROR:" << reply->errorString();
+    #ifdef DEBUG_MODE
+    qDebug() << "NullA UA:" << m_realisticUA << "| Google UA:" << googleUA;
+    #endif
+
+    {
+        // Noise seed. Stable for the life of the profile, or the main frame and
+        // its subframes would disagree on every read. Also has to differ per
+        // install, otherwise every NullA user shares one canvas signature.
+        quint32 fpSeed = settings->value("fpNoiseSeed", 0).toUInt();
+        if (fpSeed == 0) {
+            fpSeed = QRandomGenerator::global()->generate();
+            if (fpSeed == 0) fpSeed = 1; // 0 means "not generated yet"
+            settings->setValue("fpNoiseSeed", fpSeed);
         }
 
-        reply->deleteLater();
-    });
+        QFile antiFingerprint(":/scripts/antiFingerprint.js");
+        if (antiFingerprint.open(QIODevice::ReadOnly)) {
+            QString scriptCode = QString::fromUtf8(antiFingerprint.readAll());
 
-    mgr->get(QNetworkRequest(url));
+            // The script reads the seed behind a "typeof" guard, so replacing it with a
+            // number here keeps it out of the page's global scope.
+            scriptCode.replace(QStringLiteral("__NULLA_FP_SEED__"),
+                               QString::number(fpSeed));
+
+            for (const auto &oldScript : profile->scripts()->find("antiFingerprint"))
+                profile->scripts()->remove(oldScript);
+
+            // Injecting anti-fingerprinting script at document creation
+
+            QWebEngineScript antiFP;
+            antiFP.setName("antiFingerprint");
+            antiFP.setInjectionPoint(QWebEngineScript::DocumentCreation);
+            antiFP.setRunsOnSubFrames(true);
+            antiFP.setWorldId(QWebEngineScript::MainWorld);
+            antiFP.setSourceCode(scriptCode);
+
+            profile->scripts()->insert(antiFP);
+        }
+    }
 
     // The aim here is to try and reduce font fingerprinting; I don't think it's working, but let it stay here anyway
     QFontDatabase::removeAllApplicationFonts();
@@ -241,7 +223,6 @@ Browser::Browser(const QString &initialUrl) {
     // Ad-Blocker initialization and filter list fetching
     adBlock = new AdBlock(profile, this);
     adBlock->setEnabled(settings->value("adBlockEnabled", true).toBool());
-    adBlock->interceptor()->setLoginUserAgent(m_loginUA);
     adBlock->fetchFilterLists(manager);
     adBlock->fetchPublicSuffixData(manager);
 

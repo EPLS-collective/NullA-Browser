@@ -107,8 +107,8 @@ public:
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }
 
-    void setLoginUserAgent(const QString &ua);
-    static bool isAccountFlowUrl(const QUrl &url);
+    // per-domain UA for the request header only, JS keeps the profile UA
+    static void setUserAgentOverride(const QString &host, const QString &ua);
 
     static uint32_t categoryForResourceType(int resourceType);
     static uint16_t methodForString(const QByteArray &method);
@@ -191,7 +191,7 @@ private:
     std::vector<std::u16string> cosmeticGenericSelectors;
     std::unordered_set<std::u16string> cosmeticGenericExceptions;
     mutable QReadWriteLock cosmeticMutex;
-    QString m_loginUA;
+    static QHash<QString, QString> m_uaOverrides;
 };
 
 #endif // INTERCEPTOR_H

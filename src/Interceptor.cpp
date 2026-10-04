@@ -590,44 +590,29 @@ QStringList Interceptor::genericCosmeticSelectors() const {
     return selectors;
 }
 
-void Interceptor::setLoginUserAgent(const QString &ua) { m_loginUA = ua; }
+QHash<QString, QString> Interceptor::m_uaOverrides;
 
-bool Interceptor::isAccountFlowUrl(const QUrl &url) {
-    const QString host = url.host().toLower();
-    const QString path = url.path().toLower();
-
-    if (host.contains("accounts.google") || host.contains("accounts.youtube")
-        || host.contains("accounts.microsoft") || host.endsWith(".apple.com")
-        || host == "login.microsoftonline.com" || host == "login.live.com"
-        || host == "steamcommunity.com" || host == "github.com"
-        || host == "gitlab.com" || host == "bitbucket.org"
-        || host == "twitter.com" || host == "x.com"
-        || host == "facebook.com" || host == "instagram.com"
-        || host == "discord.com" || host == "accounts.spotify.com"
-        || host == "auth0.com" || host == "okta.com")
-        return true;
-
-    if (path.startsWith("/login") || path.startsWith("/signin")
-        || path.startsWith("/sign-up") || path.startsWith("/signup")
-        || path.startsWith("/register") || path.startsWith("/oauth")
-        || path.startsWith("/authorize") || path.startsWith("/auth")
-        || path.startsWith("/sessions") || path.startsWith("/account"))
-        return true;
-
-    return false;
+void Interceptor::setUserAgentOverride(const QString &host, const QString &ua) {
+    m_uaOverrides.insert(host.toLower(), ua);
 }
 
 void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
 
-    // Rewrite User-Agent on login/account flows to a short Chrome identifier
-    // so the wire header (and server side) sees it, without triggering a
-    // WebContents reload (which setHttpUserAgent would do if called mid-nav).
-    if (!m_loginUA.isEmpty()) {
-        const int rt = info.resourceType();
-        if (rt == QWebEngineUrlRequestInfo::ResourceTypeMainFrame
-            || rt == QWebEngineUrlRequestInfo::ResourceTypeSubFrame) {
-            if (isAccountFlowUrl(info.requestUrl()))
-                info.setHttpHeader(QByteArrayLiteral("User-Agent"), m_loginUA.toUtf8());
+    // The page script says en-US and hides the kernel version, so the headers have
+    // to say the same - the two halves disagreeing is a bigger tell than either
+    // value. Accept-Language is readable off the request with no JS involved.
+    // The rest of Sec-CH-UA-* is left to Chromium so it keeps matching
+    // navigator.userAgentData and the real User-Agent.
+    info.setHttpHeader(QByteArrayLiteral("Accept-Language"),
+                       QByteArrayLiteral("en-US,en;q=0.9"));
+    info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Platform-Version"), QByteArray());
+    info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Model"), QByteArray());
+
+    for (auto it = m_uaOverrides.cbegin(); it != m_uaOverrides.cend(); ++it) {
+        const QString &host = info.requestUrl().host().toLower();
+        if (host == it.key() || host.endsWith(QLatin1Char('.') + it.key())) {
+            info.setHttpHeader(QByteArrayLiteral("User-Agent"), it.value().toUtf8());
+            break;
         }
     }
 

@@ -140,7 +140,6 @@ private:
     QString queryTabsMatching(const QString &urlPattern) const;
     bool executeExtensionScriptInTab(int tabId, const QString &extId, const QString &fileName);
 
-    QString m_loginUA;
     QString m_realisticUA;
 };
 
