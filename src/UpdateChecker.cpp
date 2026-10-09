@@ -20,6 +20,7 @@
 #include <QCoreApplication>
 #include <QTextStream>
 #include <QProcess>
+#include <QFileInfo>
 
 #ifndef APP_VERSION
 #define APP_VERSION "0.0.0-dev"
@@ -153,6 +154,7 @@ void UpdateChecker::downloadUpdate(const QString &downloadUrl) {
 void UpdateChecker::installUpdate(const QString &archivePath) {
     const QString appDir = QCoreApplication::applicationDirPath();
     const QString appExe = QCoreApplication::applicationFilePath();
+    const QString appExeName = QFileInfo(appExe).fileName();
     const QString tempBase = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
     const QString extractDir = QDir(tempBase).filePath("nulla_update_extracted");
 
