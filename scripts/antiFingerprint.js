@@ -2,7 +2,8 @@
     'use strict';
 
     // Make patched functions survive toString(). The label is per function, so
-    // accessors still read "function get hardwareConcurrency() { [native code] }".
+    // accessors still read "function get hardwareConcurrency() { [native code] }"
+    // Patched functions have to still print as native in toString().
     const rawToString = Function.prototype.toString;
     const patchedSet = new WeakSet();
     const patchedLabels = new WeakMap();
@@ -12,23 +13,21 @@
         }
         return rawToString.apply(this, arguments);
     };
-    // label is '' for plain functions, 'get x' for accessors
+    // '' for plain functions, 'get x' for accessors
     const seal = (fn, label) => {
         patchedSet.add(fn);
         patchedLabels.set(fn, label || '');
         return fn;
     };
-    // The override itself has to look native too.
+    // This override has to look native too.
     seal(Function.prototype.toString, 'toString');
 
-    // WebIDL attributes are enumerable accessors on the prototype. Putting one
-    // on the navigator instance shows up in hasOwnProperty and in
-    // getOwnPropertyNames, and drops it out of for..in.
+    // Attributes are enumerable accessors on the prototype. An own property on
+    // the instance would show up in hasOwnProperty and getOwnPropertyNames.
     const defineGetter = (target, prop, val) => {
         defineAccessor(target, prop, function() { return val; });
     };
-    // Same, but installs the caller's getter. defineGetter returns a value, so
-    // passing a getter to it hands the function itself to the page.
+    // Same, but takes the caller's getter instead of a value.
     const defineAccessor = (target, prop, getter) => {
         try {
             Object.defineProperty(target, prop, {
@@ -39,7 +38,6 @@
             });
         } catch (e) {}
     };
-    // WebIDL operations are writable/enumerable/configurable data properties.
     const defineMethod = (target, prop, fn) => {
         try {
             Object.defineProperty(target, prop, {
@@ -51,9 +49,8 @@
         } catch (e) {}
     };
 
-    // Blink splits window attributes between the instance and Window.prototype.
-    // Patch wherever the real one lives, inventing an own property is the same
-    // leak as putting navigator properties on the navigator.
+    // Blink puts window attributes on either the instance or Window.prototype.
+    // Patch wherever the real one is; an own property is its own tell.
     const patchWindowProp = (prop, getter) => {
         const targets = [];
         if (Object.getOwnPropertyDescriptor(window, prop)) targets.push(window);
@@ -62,8 +59,8 @@
         for (const t of targets) defineAccessor(t, prop, getter);
     };
 
-    // Values sit on an intermediate prototype, so instanceof still works and the
-    // own-property list stays empty like a real platform object.
+    // Values sit on an intermediate prototype: instanceof works and the
+    // own-property list stays empty.
     const protoShaped = (nativeProto, props) => {
         try {
             const fakeProto = Object.create(nativeProto);
@@ -85,17 +82,17 @@
         locale: 'en-US',
         languages: ['en-US', 'en'],
         platform: 'Linux',
+        navPlatform: 'Linux x86_64',
         hardwareConcurrency: 2,
         deviceMemory: 4, // 4 GB RAM
         colorDepth: 24,
-        storageQuota: 274877906944, // 256 GiB, a plausible desktop SSD figure
+        storageQuota: 274877906944, // 256 GiB
         gpuVendor: 'Google Inc. (Intel)',
         gpuRenderer: 'ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00005917) OpenGL 4.5)'
     };
 
-    // Noise seed: same value for every call on a page, different per profile.
-    // Browser.cpp swaps the bare identifier for a number, so it never reaches
-    // the page's global scope.
+    // Per-profile noise seed. Browser.cpp swaps the identifier for a number, so
+    // it never reaches the page.
     const seedSource = (typeof __NULLA_FP_SEED__ !== 'undefined') ? __NULLA_FP_SEED__ : 0x4E756C6C;
     const strHash = (s) => {
         let h = 2166136261;
@@ -107,7 +104,7 @@
     };
     const seed = (typeof seedSource === 'number' ? seedSource : strHash('NullA')) >>> 0;
 
-    // Index-seeded noise, for signals that are not 2D pixel grids.
+    // Noise for signals that are not pixel grids.
     const idxNoise = (i, salt) => {
         let h = (Math.imul(i ^ seed, 2654435761) ^ (salt || 0)) >>> 0;
         h = Math.imul(h ^ (h >>> 15), h | 1);
@@ -123,18 +120,20 @@
         return table;
     })();
 
-    // Deterministic per-pixel noise, so every read path agrees.
+    // Deterministic, so every read path agrees.
     const needle = (x, y) => noiseTable[((x * 131) + (y * 73)) & 255];
 
-    // Real renderers differ by a few levels, not by a one-bit flip on half the
-    // pixels, XOR on the low bit is the classic injected-noise signature.
-    // Transparent pixels stay untouched, a real rasteriser leaves them at 0.
+    // Real renderers shift a few levels, they do not flip the low bit. Touch
+    // only a fifth of the pixels, leave transparent ones alone, and gate on a
+    // separate channel so a saturated fill is not clamped back to one value.
+    const CANVAS_DENSITY = 0.8;
     const clamp255 = (v) => (v < 0 ? 0 : (v > 255 ? 255 : v));
     const farble = (data, width, height) => {
         if (!data || !width || !height) return data;
         for (let i = 0, p = 0; i + 3 < data.length; i += 4, p++) {
             if (data[i + 3] === 0) continue;
             const n = needle(p % width, (p / width) | 0);
+            if (n[3] < CANVAS_DENSITY) continue;
             data[i] = clamp255(data[i] + Math.round((n[0] - 0.5) * 6));
             data[i + 1] = clamp255(data[i + 1] + Math.round((n[1] - 0.5) * 6));
             data[i + 2] = clamp255(data[i + 2] + Math.round((n[2] - 0.5) * 6));
@@ -145,8 +144,8 @@
     const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
     const origToBlob = HTMLCanvasElement.prototype.toBlob;
 
-    // Round-trip through a scratch canvas. getImageData is patched, so what
-    // putImageData gets is already noised farble() on top would double it.
+    // Round-trip through a scratch canvas. getImageData is already noised, so no
+    // farble() here or it doubles.
     const scratchNoised = (source, w, h) => {
         const tmp = document.createElement('canvas');
         tmp.width = w;
@@ -157,16 +156,16 @@
         return tmp;
     };
 
-    // Navigator bros
+    // Navigator
+    defineGetter(Navigator.prototype, 'platform', PERSONA.navPlatform);
     defineGetter(Navigator.prototype, 'hardwareConcurrency', PERSONA.hardwareConcurrency);
     defineGetter(Navigator.prototype, 'deviceMemory', PERSONA.deviceMemory);
     defineGetter(Navigator.prototype, 'plugins', Object.freeze([]));
     defineGetter(Navigator.prototype, 'language', PERSONA.locale);
     defineGetter(Navigator.prototype, 'languages', Object.freeze(PERSONA.languages.slice()));
 
-    // connection and getBattery are in every Chromium, so deleting them is a
-    // tell on its own, and delete on a non-configurable attribute throws under
-    // strict mode, which would kill the rest of this script.
+    // connection and getBattery exist in every Chromium; deleting them is a tell,
+    // and delete on a non-configurable attribute throws under strict mode.
     if (window.NetworkInformation) {
         const conn = protoShaped(NetworkInformation.prototype, {
             effectiveType: '4g',
@@ -197,8 +196,7 @@
         }
     }
 
-    // Keyboard layout is close to a country id. Plain US layout, same as the
-    // en-US locale above.
+    // Keyboard layout is close to a country id. Plain US, matching the en-US locale.
     if (window.KeyboardLayoutMap && navigator.keyboard) {
         const KEYS = [
             'a', 'A', '1', '!', 'b', 'B', '2', '@', 'c', 'C', '3', '#',
@@ -224,12 +222,12 @@
         } catch (e) {}
     }
 
-    // Quota tracks free disk space, which is a decent proxy for disk size. Pin it.
+    // Quota tracks free disk space. Pin it.
     if (window.StorageManager) {
         const usage = Math.floor(idxNoise(seed, 11) * 4194304) + 131072;
         defineMethod(StorageManager.prototype, 'estimate', function() {
-            // StorageEstimate is a dictionary, not an interface: no global, and
-            // native returns a plain object carrying its own properties.
+            // StorageEstimate is a dictionary, not an interface - no global, and
+            // the native result is a plain object.
             return Promise.resolve({
                 quota: PERSONA.storageQuota,
                 usage: usage,
@@ -269,8 +267,8 @@
         }
     }, 'toBlob');
 
-    // OffscreenCanvas shares no prototype with HTMLCanvasElement, and
-    // convertToBlob still has to hand back a promise.
+    // OffscreenCanvas has its own prototype, and convertToBlob still returns a
+    // promise.
     if (window.OffscreenCanvas && typeof OffscreenCanvas.prototype.convertToBlob === 'function') {
         const offProto = OffscreenCanvas.prototype;
         const origConvertToBlob = offProto.convertToBlob;
@@ -289,9 +287,8 @@
         }, 'convertToBlob');
     }
 
-    // Glyph advances measure the font directly, so a spoofed font list is worth
-    // little while these stay readable. Nudge each (font, text) pair by a stable
-    // sub-pixel amount, well under a tenth of a pixel.
+    // Glyph advances measure the font directly and bypass the font list. Nudge
+    // each (font, text) pair by a stable sub-pixel amount.
     const TEXT_SHIFT_MAX = 0.08;
     const textShiftCache = new Map();
     const textShift = (font, text) => {
@@ -312,8 +309,8 @@
             const font = (typeof this.font === 'string') ? this.font : '';
             const shift = textShift(font, String(text));
             if (!shift) return metrics;
-            // Reflect with the real receiver - a Proxy forwards no internal
-            // slots, so the native getters would fail their brand check.
+            // Reflect with the real receiver; a Proxy forwards no internal slots,
+            // so native getters would fail their brand check.
             return new Proxy(metrics, {
                 get(target, prop) {
                     if (prop === 'width') return target.width + shift;
@@ -327,19 +324,16 @@
         }
     }, 'measureText');
 
-    // getExtension() is left alone. Returning null for WEBGL_debug_renderer_info
-    // or filtering it out of getSupportedExtensions() is a well known tell, and
-    // the extension object itself carries nothing but two enum constants. So
-    // hand back the real object and intercept at getParameter() - that covers
-    // both the numeric and the ext.UNMASKED_RENDERER_WEBGL spelling.
+    // getExtension() stays real. Hiding WEBGL_debug_renderer_info is a known tell
+    // and the object carries only two constants. Intercept at getParameter().
     const GL_VENDOR = 0x1F00;
     const GL_RENDERER = 0x1F01;
     const UNMASKED_VENDOR_WEBGL = 0x9245;
     const UNMASKED_RENDERER_WEBGL = 0x9246;
     const UNSIGNED_BYTE = 0x1401;
 
-    // The scalar limits give the driver away just as much as the renderer
-    // string. These are what Chrome on Mesa / Intel UHD reports.
+    // Mesa / Intel UHD values. The limits leak the driver as much as the renderer
+    // string.
     const GL_INTS = new Map([
         [0x0D33, 16384],    // MAX_TEXTURE_SIZE
         [0x851C, 16384],    // MAX_CUBE_MAP_TEXTURE_SIZE
@@ -370,7 +364,7 @@
     const GL_LINE_WIDTH_RANGE = new Float32Array([1, 1]);
     const GL_POINT_SIZE_RANGE = new Float32Array([1, 1024]);
 
-    // Strong vendor signal, and it varies a lot between drivers.
+    // Varies a lot between drivers.
     const PRECISION = {
         'highp float': { rangeMin: 127, rangeMax: 127, precision: 23 },
         'mediump float': { rangeMin: 127, rangeMax: 127, precision: 23 },
@@ -388,9 +382,8 @@
         0x8DF6: 'highp int'
     };
 
-    // readPixels hands back a raw byte buffer, so it walks straight past every
-    // HTMLCanvasElement patch. It must still return undefined - passing the
-    // buffer on would be a new tell.
+    // readPixels returns a raw buffer and skips the canvas patches. Still return
+    // undefined.
     const patchReadPixels = (proto) => {
         if (typeof proto.readPixels !== 'function') return;
         const orig = proto.readPixels;
@@ -430,8 +423,7 @@
             }, 'getShaderPrecisionFormat');
         }
 
-        // Only the request hint is pinned. The rest describe the context the
-        // page asked for, and disagreeing with the real framebuffer is worse.
+        // Only the request hint is pinned; the rest describe what the page asked for.
         if (typeof proto.getContextAttributes === 'function') {
             const oldAttrs = proto.getContextAttributes;
             proto.getContextAttributes = seal(function() {
@@ -443,21 +435,16 @@
             }, 'getContextAttributes');
         }
 
-        // getSupportedExtensions() passes through on purpose. A hand-written
-        // list would have to agree with the masked limits, the real driver and
-        // the renderer string at once, and a wrong guess is more identifying.
+        // getSupportedExtensions() passes through; a hand-written list has to
+        // agree with the limits, driver and renderer, and a wrong guess is worse.
 
         patchReadPixels(proto);
     };
     patchGL(WebGLRenderingContext.prototype);
     patchGL(WebGL2RenderingContext.prototype);
 
-    // Screen and window geometry
-    //
-    // Sizes are snapped to the nearest common desktop resolution, not replaced.
-    // innerWidth has to stay consistent with documentElement.clientWidth and the
-    // canvas backing store, all of which report the real layout - a fixed
-    // persona screen shows up as a viewport disagreeing with the page.
+    // Screen and window geometry. Snap to the nearest common resolution instead
+    // of forcing one; innerWidth has to stay consistent with the real layout.
     const RESOLUTIONS = [
         [1280, 720], [1366, 768], [1440, 900], [1536, 864], [1600, 900],
         [1680, 1050], [1920, 1080], [2560, 1440], [3440, 1440], [3840, 2160]
@@ -502,9 +489,8 @@
         }
     }
 
-    // devicePixelRatio is left alone. X11 scaling gives values like 1.3333, but
-    // the canvas backing store and the layout viewport are both built from the
-    // real ratio, and canvas.width == rect.width * devicePixelRatio gets checked.
+    // devicePixelRatio is left alone; the canvas backing store and layout are
+    // both built from it and get checked.
 
     const FRAME_W_MAX = 16;
     const FRAME_H_MAX = 90;
@@ -553,9 +539,9 @@
     if (gOuterH) patchWindowProp('outerHeight', function() { return windowGeometry().outerHeight; });
     if (gInnerW) patchWindowProp('innerWidth', function() { return windowGeometry().innerWidth; });
     if (gInnerH) patchWindowProp('innerHeight', function() { return windowGeometry().innerHeight; });
-    // Fresh function per property. seal() labels by identity, so sharing one
-    // getter would render both screenX and screenLeft as "get screenX".
-if (gScreenX) {
+    // One getter per property; seal() labels by identity, so sharing one would
+    // make screenX and screenLeft both print as "get screenX".
+    if (gScreenX) {
         patchWindowProp('screenX', function() { return windowOrigin().x; });
         patchWindowProp('screenLeft', function() { return windowOrigin().x; });
     }
@@ -564,9 +550,8 @@ if (gScreenX) {
         patchWindowProp('screenTop', function() { return windowOrigin().y; });
     }
 
-    // userAgentData and the Sec-CH-UA-* headers are two views of the same values.
-    // Only the two that leak are pinned, on both sides; the rest is left to
-    // Chromium so it keeps agreeing with the User-Agent.
+    // userAgentData and the Sec-CH-UA-* headers are two views of one value. Pin
+    // only the leaky fields; the rest stays Chromium's so it agrees with the UA.
     if (navigator.userAgentData) {
         try {
             const UAD = Object.getPrototypeOf(navigator.userAgentData);
@@ -588,8 +573,61 @@ if (gScreenX) {
         } catch (e) {}
     }
 
-    // Speech voices are an OS package fingerprint. Pin the list instead of
-    // enumerating whatever speech backend is installed.
+    // Font availability is an OS package list. check() and FontFace.load() both
+    // read the local store, so answer both from one list. Match exactly:
+    // 'Noto Sans' as a substring also matches every 'Noto Sans <script>' variant.
+    const fontSetProto = (window.FontFaceSet && window.FontFaceSet.prototype)
+        || (document.fonts && Object.getPrototypeOf(document.fonts));
+    const FONTS = [
+        'DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif',
+        'Liberation Sans', 'Liberation Serif', 'Liberation Mono',
+        'Noto Sans', 'Noto Color Emoji', 'Noto Serif',
+        'Ubuntu', 'Ubuntu Mono', 'Cantarell', 'Roboto',
+        'Source Code Pro', 'Ubuntu Condensed'
+    ];
+    const lowered = FONTS.map((f) => f.toLowerCase());
+    // document.fonts only holds declared faces; a page with no @font-face has an
+    // empty set. Leave size and iteration native.
+    const pickFont = (font) => {
+        if (typeof font !== 'string') return '';
+        const m = /^\s*(?:\d+(?:\.\d+)?(?:px|pt|em|rem|%)?\s+)?(?:["']?)([A-Za-z0-9 \-_]+)/.exec(font);
+        return m ? m[1].trim().toLowerCase() : String(font).trim().toLowerCase();
+    };
+    if (fontSetProto) {
+        defineMethod(fontSetProto, 'check', function(font) {
+            const fam = pickFont(String(font || ''));
+            return fam !== '' && lowered.indexOf(fam) !== -1;
+        });
+    }
+    // local() in load() bypasses check() and asks the OS. Wrap the constructor so
+    // url()/buffer webfonts still load, and answer local() from the same list.
+    if (typeof window.FontFace === 'function') {
+        const OrigFontFace = window.FontFace;
+        const sourceOf = new WeakMap();
+        const WrappedFontFace = function(family, source, descriptors) {
+            const face = new OrigFontFace(family, source, descriptors);
+            try { sourceOf.set(face, String(source == null ? '' : source)); } catch (e) {}
+            return face;
+        };
+        try {
+            WrappedFontFace.prototype = OrigFontFace.prototype;
+            const origLoad = OrigFontFace.prototype.load;
+            defineMethod(OrigFontFace.prototype, 'load', function() {
+                const src = sourceOf.get(this);
+                if (src !== undefined && /^\s*local\(/i.test(src)) {
+                    const fam = String(this.family || '').toLowerCase();
+                    if (lowered.indexOf(fam) !== -1) return Promise.resolve(this);
+                    return Promise.reject(new DOMException('A network error occurred.', 'NetworkError'));
+                }
+                return origLoad.apply(this, arguments);
+            });
+            Object.defineProperty(WrappedFontFace, 'name', { value: 'FontFace', configurable: true });
+            Object.defineProperty(WrappedFontFace, 'length', { value: OrigFontFace.length, configurable: true });
+            window.FontFace = seal(WrappedFontFace, 'FontFace');
+        } catch (e) {}
+    }
+
+    // Voices are an OS package fingerprint. Pin the list.
     if (window.SpeechSynthesis && window.SpeechSynthesisVoice
         && window.speechSynthesis) {
         const voices = [
@@ -605,30 +643,32 @@ if (gScreenX) {
         }
     }
 
-    // Locale and time zone
-    const forceEnUS = (proto) => {
-        if (!proto) return;
-        const orig = proto.resolvedOptions;
-        proto.resolvedOptions = seal(function() {
-            let o;
-            try {
-                o = orig.apply(this, arguments);
-            } catch (e) {
-                return orig.apply(this, arguments);
+    // Locale and time zone. Pin only the default locale; an explicit de-DE has to
+    // keep working. Rewriting resolvedOptions() never changed the rendered output.
+    const forceDefaultLocale = (name) => {
+        const Orig = Intl[name];
+        if (typeof Orig !== 'function') return;
+        const Wrapped = function(locales, options) {
+            let use = locales;
+            if (use === undefined || use === null ||
+                (Array.isArray(use) && use.length === 0)) {
+                use = PERSONA.locale;
             }
-            o.locale = PERSONA.locale;
-            return o;
-        }, 'resolvedOptions');
+            return new Orig(use, options);
+        };
+        try {
+            Wrapped.prototype = Orig.prototype;
+            Wrapped.supportedLocalesOf = Orig.supportedLocalesOf;
+            Object.defineProperty(Wrapped, 'name', { value: name, configurable: true });
+            Object.defineProperty(Wrapped, 'length', { value: Orig.length, configurable: true });
+            Intl[name] = seal(Wrapped, name);
+        } catch (e) {}
     };
-    forceEnUS(Intl.DateTimeFormat.prototype);
-    forceEnUS(Intl.NumberFormat.prototype);
-    forceEnUS(Intl.Collator.prototype);
-    forceEnUS(Intl.RelativeTimeFormat.prototype);
-    forceEnUS(Intl.PluralRules.prototype);
-    forceEnUS(Intl.ListFormat.prototype);
+    ['DateTimeFormat', 'NumberFormat', 'Collator', 'RelativeTimeFormat',
+     'PluralRules', 'ListFormat', 'DisplayNames', 'Segmenter'
+    ].forEach(forceDefaultLocale);
 
-    // Report UTC everywhere, and format in UTC too so the text and
-    // resolvedOptions().timeZone agree.
+    // Report and format in UTC so the text and resolvedOptions().timeZone agree.
     const DTF = Intl.DateTimeFormat.prototype;
     const oResolvedDTF = DTF.resolvedOptions;
     const safeResolve = (self) => {
@@ -641,7 +681,7 @@ if (gScreenX) {
     DTF.resolvedOptions = seal(function() {
         const o = safeResolve(this);
         if (o === undefined) return oResolvedDTF.apply(this);
-        o.locale = PERSONA.locale;
+        // locale is already right, the constructor pins it.
         o.timeZone = 'UTC';
         return o;
     }, 'resolvedOptions');
@@ -668,17 +708,16 @@ if (gScreenX) {
         } catch (e) {}
         return parts;
     };
-    // Detached calls lose the instance, so they go through a bare UTC formatter -
-    // native would throw on the same receiver.
+    // Detached calls lose the instance; native would throw on the same receiver,
+    // so use a bare UTC formatter.
     const utcDefault = new Intl.DateTimeFormat(PERSONA.locale, { timeZone: 'UTC' });
-    // Reading .format invokes the native getter, whose brand check rejects the
-    // prototype and throws. Assigning to it is a silent no-op too - accessor, no
-    // setter. So read the descriptor, never the value.
+    // .format is an accessor: reading it brand-checks and throws, assigning is a
+    // no-op. Read the descriptor, never the value.
     const descOrNull = (obj, prop) => {
         try { return Object.getOwnPropertyDescriptor(obj, prop) || null; } catch (e) { return null; }
     };
-    // A native bound method reports name "format" and length 1. A bare wrapper
-    // reports "", which is a one-line detector.
+    // A bound native method reports name "format" and length 1; a bare wrapper
+    // reports "".
     const mimicBound = (fn, name, arity) => {
         try {
             Object.defineProperty(fn, 'name', { value: name, configurable: true });
@@ -695,8 +734,7 @@ if (gScreenX) {
             return a;
         };
         if (typeof d.get === 'function') {
-            // Accessor form. Resolve the bound method on a UTC clone of this
-            // instance so the page's own format options survive.
+            // Resolve the bound method on a UTC clone so the page's options survive.
             const nativeGet = d.get;
             defineAccessor(DTF, prop, function() {
                 nativeGet.call(this);
@@ -727,18 +765,46 @@ if (gScreenX) {
 
     Date.prototype.getTimezoneOffset = seal(function() { return 0; }, 'getTimezoneOffset');
 
+    // toLocaleString() reads the implementation default locale directly, so the
+    // Intl constructor patch never reaches it.
+    const withLocale = (args) => {
+        const a = Array.prototype.slice.call(args);
+        if (a.length === 0 || a[0] === undefined || a[0] === null) a[0] = PERSONA.locale;
+        return a;
+    };
+
     const oDateToString = Date.prototype.toString;
     const oDateToTimeString = Date.prototype.toTimeString;
+    const oDateToDateString = Date.prototype.toDateString;
     const oDateToLocaleString = Date.prototype.toLocaleString;
     const oDateToLocaleTimeString = Date.prototype.toLocaleTimeString;
+    const oDateToLocaleDateString = Date.prototype.toLocaleDateString;
     Date.prototype.toString = seal(function() { return sanitizeTz(oDateToString.call(this)); }, 'toString');
     Date.prototype.toTimeString = seal(function() { return sanitizeTz(oDateToTimeString.call(this)); }, 'toTimeString');
-    Date.prototype.toLocaleString = seal(function() { return sanitizeTz(oDateToLocaleString.apply(this, arguments)); }, 'toLocaleString');
-    Date.prototype.toLocaleTimeString = seal(function() { return sanitizeTz(oDateToLocaleTimeString.apply(this, arguments)); }, 'toLocaleTimeString');
+    Date.prototype.toDateString = seal(function() { return sanitizeTz(oDateToDateString.call(this)); }, 'toDateString');
+    Date.prototype.toLocaleString = seal(function() {
+        return sanitizeTz(oDateToLocaleString.apply(this, withLocale(arguments)));
+    }, 'toLocaleString');
+    Date.prototype.toLocaleTimeString = seal(function() {
+        return sanitizeTz(oDateToLocaleTimeString.apply(this, withLocale(arguments)));
+    }, 'toLocaleTimeString');
+    Date.prototype.toLocaleDateString = seal(function() {
+        return sanitizeTz(oDateToLocaleDateString.apply(this, withLocale(arguments)));
+    }, 'toLocaleDateString');
 
-    // Temporal reads the real IANA zone through its own path, untouched by the
-    // Intl and Date patches. Unflagged in Firefox 139 / Chrome 144, so
-    // Temporal.Now.timeZoneId() alone would bypass the UTC spoof above.
+    // Same for numbers - this is what gave the system locale away.
+    const localeNumber = (proto) => {
+        if (!proto || typeof proto.toLocaleString !== 'function') return;
+        const orig = proto.toLocaleString;
+        defineMethod(proto, 'toLocaleString', function() {
+            return orig.apply(this, withLocale(arguments));
+        });
+    };
+    localeNumber(window.Number && Number.prototype);
+    localeNumber(window.BigInt && BigInt.prototype);
+
+    // Temporal reads the real IANA zone itself, bypassing the Intl and Date
+    // patches.
     if (window.Temporal && window.Temporal.Now) {
         try {
             const TNow = window.Temporal.Now;
@@ -746,8 +812,8 @@ if (gScreenX) {
             if (typeof TNow.timeZoneId === 'function') {
                 defineMethod(TNow, 'timeZoneId', function() { return 'UTC'; });
             }
-            // timeZoneLike is ignored on purpose; honouring it would only show
-            // that the page asked for another zone.
+            // timeZoneLike is ignored; honoring it would reveal the page asked for
+            // another zone.
             if (typeof TNow.zonedDateTimeISO === 'function') {
                 defineMethod(TNow, 'zonedDateTimeISO', function() { return utcNow(); });
             }
@@ -763,11 +829,10 @@ if (gScreenX) {
         } catch (e) {}
     }
 
-    // OfflineAudioContext output varies with CPU and audio hardware, and
-    // fingerprinters read the rendered buffer. Nudging one sample by a constant
-    // leaves the rest intact and the constant is the giveaway, so perturb the
-    // whole buffer relative to each sample's own magnitude.
-    const AUDIO_EPS = 1e-7;
+    // The rendered audio buffer varies with CPU and hardware and is fingerprinted.
+    // Perturb the whole buffer by a small per-sample factor; 1e-7 sat below the
+    // precision of the usual aggregates and hid nothing.
+    const AUDIO_EPS = 2e-3;
     if (window.AudioBuffer) {
         const origGetChannel = AudioBuffer.prototype.getChannelData;
         AudioBuffer.prototype.getChannelData = seal(function() {
@@ -781,5 +846,22 @@ if (gScreenX) {
             } catch (e) {}
             return data;
         }, 'getChannelData');
+    }
+
+    // The raw clock steps in sub-microseconds; a normal page sees 100us after
+    // Chromium clamps it. Grid the value: still monotonic, far less precise.
+    if (window.Performance && typeof performance !== 'undefined') {
+        try {
+            const origNow = performance.now.bind(performance);
+            defineMethod(Performance.prototype, 'now', function() {
+                const t = origNow();
+                return Math.floor(t * 10) / 10;
+            });
+        } catch (e) {}
+    }
+
+    // Chromium only reports this when its built-in viewer is present.
+    if ('pdfViewerEnabled' in Navigator.prototype) {
+        defineGetter(Navigator.prototype, 'pdfViewerEnabled', true);
     }
 })();

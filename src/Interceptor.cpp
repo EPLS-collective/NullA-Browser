@@ -599,12 +599,14 @@ void Interceptor::setUserAgentOverride(const QString &host, const QString &ua) {
 void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
 
     // The page script says en-US and hides the kernel version, so the headers have
-    // to say the same - the two halves disagreeing is a bigger tell than either
+    // to say the same, the two halves disagreeing is a bigger tell than either
     // value. Accept-Language is readable off the request with no JS involved.
-    // The rest of Sec-CH-UA-* is left to Chromium so it keeps matching
-    // navigator.userAgentData and the real User-Agent.
+    // Platform hints are pinned to the persona so they keep matching
+    // navigator.userAgentData and the pinned User-Agent.
     info.setHttpHeader(QByteArrayLiteral("Accept-Language"),
                        QByteArrayLiteral("en-US,en;q=0.9"));
+    info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Platform"),
+                       QByteArrayLiteral("\"Linux\""));
     info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Platform-Version"), QByteArray());
     info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Model"), QByteArray());
 

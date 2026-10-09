@@ -131,6 +131,15 @@ Browser::Browser(const QString &initialUrl) {
     // Take QtWebEngine's UA verbatim, strip only the QtWebEngine/ token
     QString ua = engineUA;
     ua.remove(QRegularExpression(QStringLiteral("\\s*Qt(?:WebEngine)?/\\S+")));
+    // lets pin the platform comment to Linux whatever the host is
+    {
+        const QRegularExpression osComment(QStringLiteral("\\([^)]*\\)"));
+        const QRegularExpressionMatch m = osComment.match(ua);
+        if (m.hasMatch()) {
+            ua.replace(m.capturedStart(), m.capturedLength(),
+                       QStringLiteral("(X11; Linux x86_64)"));
+        }
+    }
 
     m_realisticUA = ua;
     profile->setHttpUserAgent(m_realisticUA);
