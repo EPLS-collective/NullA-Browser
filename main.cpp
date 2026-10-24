@@ -21,12 +21,15 @@ int main(int argc, char *argv[]) {
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 
+    // Same time zone for everyone (Like Tor persona yknow, we also doing this on JavaScript side btw.)
+    qputenv("TZ", "UTC");
+
     // Hardening Chromium for privacy and performance
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS",
         // "--disable-frame-rate-limit " // Removes chromium FPS limit (Chromium default: 60)
+        "--lang=en-US " // Same language for everyone
         "--disable-dns-prefetch " // Prevents DNS lookups before clicking links
-        "--disable-features=WebRtcHideLocalIpsWithMdns," // Disables mDNS to prevent local IP leakage
-            "UserAgentClientHint," // Disables Client Hints to reduce fingerprinting
+        "--disable-features=UserAgentClientHint," // Disables Client Hints to reduce fingerprinting
             "UserAgentClientHintFullVersionList," // Hides detailed browser version from sites
             "UserAgentClientHintReduced," // Standardizes User-Agent strings
             "ClientHints," // Disables modern browser-info requests
@@ -39,7 +42,6 @@ int main(int argc, char *argv[]) {
             "TranslateUI," // Disables integrated Google Translate
             "AutofillServerCommunication," // Stops sending form data to Google
             "BackgroundFetch," // Blocks background downloads
-            "BackgroundTimerThrottling," // Saves CPU by slowing background tabs
             "Reporting," // Disables enterprise/diagnostic reporting
             "NetworkErrorLogging " // Blocks network status reporting to servers
         "--force-webrtc-ip-handling-policy=disable_non_proxied_udp " // Forces WebRTC to use proxy (avoids IP leak)
