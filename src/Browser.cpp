@@ -168,24 +168,16 @@ Browser::Browser(const QString &initialUrl) {
     #endif
 
     {
-        // Noise seed. Stable for the life of the profile, or the main frame and
-        // its subframes would disagree on every read. Also has to differ per
-        // install, otherwise every NullA user shares one canvas signature.
-        quint32 fpSeed = settings->value("fpNoiseSeed", 0).toUInt();
-        if (fpSeed == 0) {
-            fpSeed = QRandomGenerator::global()->generate();
-            if (fpSeed == 0) fpSeed = 1; // 0 means "not generated yet"
-            settings->setValue("fpNoiseSeed", fpSeed);
-        }
+        // New random token on every launch, never saved to disk
+        settings->remove(QStringLiteral("fpNoiseSeed"));
+        const quint32 fpSession = QRandomGenerator::system()->generate();
 
         QFile antiFingerprint(":/scripts/antiFingerprint.js");
         if (antiFingerprint.open(QIODevice::ReadOnly)) {
             QString scriptCode = QString::fromUtf8(antiFingerprint.readAll());
 
-            // The script reads the seed behind a "typeof" guard, so replacing it with a
-            // number here keeps it out of the page's global scope.
-            scriptCode.replace(QStringLiteral("__NULLA_FP_SEED__"),
-                               QString::number(fpSeed));
+            scriptCode.replace(QStringLiteral("__NULLA_FP_SESSION__"),
+                               QString::number(fpSession));
 
             for (const auto &oldScript : profile->scripts()->find("antiFingerprint"))
                 profile->scripts()->remove(oldScript);
@@ -207,6 +199,7 @@ Browser::Browser(const QString &initialUrl) {
     QFontDatabase::removeAllApplicationFonts();
 
     // Strict WebEngine security hardening
+    profile->settings()->setAttribute(QWebEngineSettings::Accelerated2dCanvasEnabled, false); // Draw 2D canvas on the CPU so GPU differences do not show up
     profile->settings()->setAttribute(QWebEngineSettings::WebRTCPublicInterfacesOnly, true); // Prevent local IP leaks
     profile->settings()->setAttribute(QWebEngineSettings::FullScreenSupportEnabled, true);
     profile->settings()->setAttribute(QWebEngineSettings::JavascriptCanOpenWindows, false); // Block pop-ups

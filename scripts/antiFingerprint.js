@@ -93,7 +93,7 @@
 
     // Per-profile noise seed. Browser.cpp swaps the identifier for a number, so
     // it never reaches the page.
-    const seedSource = (typeof __NULLA_FP_SEED__ !== 'undefined') ? __NULLA_FP_SEED__ : 0x4E756C6C;
+    const seedSource = (typeof __NULLA_FP_SESSION__ !== 'undefined') ? __NULLA_FP_SESSION__ : 0x4E756C6C;
     const strHash = (s) => {
         let h = 2166136261;
         for (let i = 0; i < s.length; i++) {

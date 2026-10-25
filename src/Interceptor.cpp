@@ -10,6 +10,7 @@
 #include <QHostAddress>
 #include <QByteArray>
 #include <QSet>
+#include <QRegularExpression>
 #include <chrono>
 
 Interceptor::Interceptor(QObject* parent)
@@ -609,6 +610,40 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
                        QByteArrayLiteral("\"Linux\""));
     info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Platform-Version"), QByteArray());
     info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Model"), QByteArray());
+
+    // Client Hints from Chromium show real values, make them match the page script
+    {
+        static const QHash<QByteArray, QByteArray> fixedHints = {
+            {"sec-ch-ua-arch", "\"x86\""},
+            {"sec-ch-ua-bitness", "\"64\""},
+            {"sec-ch-ua-wow64", "?0"},
+            {"sec-ch-ua-form-factors", "\"Desktop\""},
+            {"sec-ch-device-memory", "8"},
+            {"device-memory", "8"},
+            {"rtt", "50"},
+            {"downlink", "10"},
+            {"ect", "4g"},
+        };
+        static const QRegularExpression versionPart(QStringLiteral("v=\"(\\d+)[\\d.]*\""));
+        static const QRegularExpression singleVersion(QStringLiteral("^\"(\\d+)[\\d.]*\"$"));
+
+        const QHash<QByteArray, QByteArray> sent = info.httpHeaders();
+        for (auto it = sent.cbegin(); it != sent.cend(); ++it) {
+            const QByteArray name = it.key().toLower();
+            const auto fixed = fixedHints.constFind(name);
+            if (fixed != fixedHints.cend()) {
+                info.setHttpHeader(it.key(), fixed.value());
+            } else if (name == "sec-ch-ua-full-version-list") {
+                QString v = QString::fromLatin1(it.value());
+                v.replace(versionPart, QStringLiteral("v=\"\\1.0.0.0\""));
+                info.setHttpHeader(it.key(), v.toLatin1());
+            } else if (name == "sec-ch-ua-full-version") {
+                QString v = QString::fromLatin1(it.value());
+                v.replace(singleVersion, QStringLiteral("\"\\1.0.0.0\""));
+                info.setHttpHeader(it.key(), v.toLatin1());
+            }
+        }
+    }
 
     for (auto it = m_uaOverrides.cbegin(); it != m_uaOverrides.cend(); ++it) {
         const QString &host = info.requestUrl().host().toLower();
