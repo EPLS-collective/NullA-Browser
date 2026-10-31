@@ -206,6 +206,7 @@ void UpdateChecker::installUpdate(const QString &archivePath) {
     QProcess::startDetached("cmd.exe", {"/c", scriptPath});
     #else
     const QString scriptPath = QDir(tempBase).filePath("nulla_update.sh");
+    const QString logPath = QDir(tempBase).filePath("nulla_update.log");
     QFile script(scriptPath);
     if (!script.open(QIODevice::WriteOnly | QIODevice::Text)) {
         emit downloadFailed(QStringLiteral("Update script could not be created."));
@@ -213,18 +214,23 @@ void UpdateChecker::installUpdate(const QString &archivePath) {
     }
     QTextStream out(&script);
     out << "#!/bin/sh\n";
-    out << "sleep 2\n";
-    out << "mkdir -p \"" << extractDir << "\"\n";
-    out << "tar -xzf \"" << archivePath << "\" -C \"" << extractDir << "\"\n";
-    out << "cp -rf \"" << extractDir << "/NullA/.\" \"" << appDir << "/\"\n";
+    out << "exec >\"" << logPath << "\" 2>&1\n";
+    out << "set -x\n";
+    out << "i=0; while kill -0 " << QCoreApplication::applicationPid()
+        << " 2>/dev/null && [ $i -lt 40 ]; do sleep 0.5; i=$((i+1)); done\n";
+    out << "rm -rf \"" << extractDir << "\"; mkdir -p \"" << extractDir << "\"\n";
+    out << "start_app() { setsid \"" << appExe << "\" >/dev/null 2>&1 & }\n";
+    out << "tar -xzf \"" << archivePath << "\" -C \"" << extractDir << "\" || { echo TAR_FAILED; start_app; exit 1; }\n";
+    out << "[ -x \"" << extractDir << "/NullA/NullA\" ] || { echo NO_BINARY_IN_ARCHIVE; start_app; exit 1; }\n";
+    out << "cp -rf --remove-destination \"" << extractDir << "/NullA/.\" \"" << appDir << "/\" || { echo CP_FAILED; start_app; exit 1; }\n";
     out << "chmod +x \"" << appExe << "\"\n";
-    out << "rm -rf \"" << extractDir << "\"\n";
-    out << "\"" << appExe << "\" &\n";
+    out << "rm -rf \"" << extractDir << "\" \"" << archivePath << "\"\n";
+    out << "start_app\n";
     out << "rm -- \"$0\"\n";
     script.close();
     script.setPermissions(script.permissions() | QFileDevice::ExeOwner | QFileDevice::ExeGroup | QFileDevice::ExeOther);
 
-    QProcess::startDetached("/bin/sh", {scriptPath});
+    QProcess::startDetached("setsid", {"/bin/sh", scriptPath});
     #endif
 
     QCoreApplication::quit();
