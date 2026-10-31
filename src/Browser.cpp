@@ -261,7 +261,7 @@ Browser::Browser(const QString &initialUrl) {
             qwcScript.setSourceCode(QString::fromUtf8(qwcFile.readAll()));
             qwcScript.setName("nulla_qwebchannel_lib");
             qwcScript.setInjectionPoint(QWebEngineScript::DocumentCreation);
-            qwcScript.setWorldId(QWebEngineScript::MainWorld);
+            qwcScript.setWorldId(QWebEngineScript::ApplicationWorld);
             qwcScript.setRunsOnSubFrames(true);
             profile->scripts()->insert(qwcScript);
             qwcFile.close();
@@ -1783,15 +1783,28 @@ bool Browser::executeExtensionScriptInTab(int tabId, const QString &extId, const
     TabPage *page = qobject_cast<TabPage*>(tabWidget->widget(tabId));
     if (!page || !page->webView() || !page->webView()->page()) return false;
 
-    QString extRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/extensions";
-    QFile jsFile(extRoot + "/" + extId + "/" + fileName);
+    static const QRegularExpression idRe(QStringLiteral("^[A-Za-z0-9_.\\-]+$"));
+    if (!idRe.match(extId).hasMatch() || extId.contains(QStringLiteral(".."))) return false;
+
+    const QString extRoot = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                                 + "/extensions").canonicalPath();
+    const QString extDir  = QDir(extRoot + "/" + extId).canonicalPath();
+    if (extRoot.isEmpty() || extDir.isEmpty() || !extDir.startsWith(extRoot + "/")) return false;
+
+    const QString filePath = QFileInfo(extDir + "/" + fileName).canonicalFilePath();
+    if (filePath.isEmpty()
+        || !filePath.startsWith(extDir + "/")
+        || !filePath.endsWith(QStringLiteral(".js"), Qt::CaseInsensitive)) return false;
+
+    QFile jsFile(filePath);
     if (!jsFile.open(QIODevice::ReadOnly)) return false;
 
     QString jsCode = QString::fromUtf8(jsFile.readAll());
     jsFile.close();
 
     QString combined = ExtensionManager::chromePolyfillFor(extId, /*isBackground=*/false) + "\n;\n" + jsCode;
-    page->webView()->page()->runJavaScript(combined);
+
+    page->webView()->page()->runJavaScript(combined, QWebEngineScript::ApplicationWorld);
     return true;
 }
 

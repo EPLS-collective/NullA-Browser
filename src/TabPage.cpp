@@ -60,7 +60,7 @@ protected:
 TabPage::TabPage(QWebEngineProfile* profile, QWidget* parent) : QStackedWidget(parent) {
     view = new QWebEngineView(this);
     view->setPage(new WebPage(profile, view));
-    view->page()->setWebChannel(ExtensionBridge::channel());
+    view->page()->setWebChannel(ExtensionBridge::channel(), QWebEngineScript::ApplicationWorld);
 
     startPage = new StartPage();
 

@@ -29,6 +29,14 @@
 namespace {
     constexpr const char* kLatestReleaseUrl =
     "https://api.github.com/repos/EPLS-collective/NullA-Browser/releases/latest";
+
+    QString privateUpdateDir() {
+        const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                            + QStringLiteral("/update");
+        QDir().mkpath(dir);
+        QFile::setPermissions(dir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        return dir;
+    }
 }
 
 UpdateChecker::UpdateChecker(QObject* parent)
@@ -98,9 +106,6 @@ void UpdateChecker::onReplyFinished(QNetworkReply* reply) {
             break;
         }
     }
-    if (downloadUrl.isEmpty() && !assets.isEmpty())
-        downloadUrl = assets.first().toObject().value("browser_download_url").toString();
-
     if (compareVersions(tag, currentVersion()) > 0) {
         emit updateAvailable(normalizeVersion(tag), releaseUrl, notes, downloadUrl);
     } else {
@@ -134,8 +139,8 @@ void UpdateChecker::downloadUpdate(const QString &downloadUrl) {
             return;
         }
 
-        const QString fileName = QUrl(downloadUrl).fileName();
-        const QString dirPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+        const QString fileName = QFileInfo(QUrl(downloadUrl).fileName()).fileName();
+        const QString dirPath = privateUpdateDir();
         const QString filePath = QDir(dirPath).filePath(fileName);
 
         QFile file(filePath);
@@ -155,7 +160,7 @@ void UpdateChecker::installUpdate(const QString &archivePath) {
     const QString appDir = QCoreApplication::applicationDirPath();
     const QString appExe = QCoreApplication::applicationFilePath();
     const QString appExeName = QFileInfo(appExe).fileName();
-    const QString tempBase = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    const QString tempBase = privateUpdateDir();
     const QString extractDir = QDir(tempBase).filePath("nulla_update_extracted");
 
     QDir(extractDir).removeRecursively();

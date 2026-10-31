@@ -357,7 +357,7 @@ void ExtensionManager::loadExtensionScripts(const QString &extId) {
                         script.setSourceCode(combined);
                         script.setName(scriptName);
                         script.setInjectionPoint(QWebEngineScript::DocumentReady);
-                        script.setWorldId(QWebEngineScript::MainWorld);
+                        script.setWorldId(QWebEngineScript::ApplicationWorld);
                         script.setRunsOnSubFrames(true);
 
                         m_profile->scripts()->insert(script);
@@ -405,7 +405,7 @@ void ExtensionManager::loadExtensionBackground(const QString &extId, const QStri
             #endif
             return;
         }
-        bgPage->runJavaScript(combined);
+        bgPage->runJavaScript(combined, QWebEngineScript::ApplicationWorld);
     });
 
     bgPage->setHtml(QStringLiteral("<!DOCTYPE html><html><head><title>background:%1</title></head><body></body></html>").arg(extId));
