@@ -394,7 +394,7 @@ void ExtensionManager::loadExtensionBackground(const QString &extId, const QStri
     unloadExtensionBackground(extId);
 
     QWebEnginePage *bgPage = new QWebEnginePage(m_profile, this);
-    bgPage->setWebChannel(ExtensionBridge::channel());
+    bgPage->setWebChannel(ExtensionBridge::channel(), QWebEngineScript::ApplicationWorld);
 
     QString combined = chromePolyfillFor(extId, /*isBackground=*/true) + "\n;\n" + jsCode;
 

@@ -11,6 +11,7 @@
 #include "../include/ExtensionBridge.h"
 #include <QApplication>
 #include <QWebChannel>
+#include <QWebEngineScript>
 #include <QDebug>
 #include <QTimer>
 
