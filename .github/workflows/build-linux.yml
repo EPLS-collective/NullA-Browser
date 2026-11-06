@@ -74,7 +74,7 @@ jobs:
           export LD_LIBRARY_PATH="$QTROOT/lib"
           for f in NullA QtWebEngineProcess $(find plugins -name '*.so'); do
             ldd "$f" | awk '/=> \//{print $3}' | grep "^$QTROOT/" || true
-          done | sort -u | xargs -I{} cp -Ln {} .
+          done | sort -u | xargs -I{} cp -L {} .
 
           # Tell Qt to look for everything next to the executable
           printf '%s\n' '[Paths]' 'Prefix = .' 'Libraries = .' 'LibraryExecutables = .' 'Plugins = plugins' 'Data = .' 'Translations = translations' > qt.conf
