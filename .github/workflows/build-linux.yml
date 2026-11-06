@@ -22,7 +22,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libegl1-mesa-dev libgl1-mesa-dev libxcb-cursor0
+          sudo apt-get install -y ninja-build libegl1-mesa-dev libgl1-mesa-dev libxcb-cursor0 patchelf
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
@@ -39,39 +39,57 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: Prepare package folder and deploy dependencies
+      - name: Prepare self-contained package
         run: |
+          set -e
+
+          QTROOT="$(readlink -f "${QT_ROOT_DIR:-$GITHUB_WORKSPACE/../Qt/6.10.2/gcc_64}")"
+          echo "Qt root: $QTROOT"
+          if [ ! -x "$QTROOT/libexec/QtWebEngineProcess" ]; then
+            echo "ERROR: QtWebEngineProcess not found under $QTROOT"
+            ls "$QTROOT"
+            exit 1
+          fi
+
           rm -rf build/NullA
           mkdir -p build/NullA
-
           find build -type f -name "NullA" ! -path "*/CMakeFiles/*" -exec cp {} build/NullA/ \;
-          chmod +x build/NullA/NullA
-
           cd build/NullA
-          ldd NullA | grep "=> /" | awk '{print $3}' | grep -vE "libc\.so|libpthread\.so|libdl\.so|libm\.so|librt\.so|libutil\.so|libcrypt\.so|libresolv\.so|libgcc_s\.so|ld-linux" | xargs -I '{}' cp -n '{}' . || true
+          chmod +x NullA
+          strip --strip-unneeded NullA || true
 
+          # WebEngine helper process and its resources
+          cp "$QTROOT/libexec/QtWebEngineProcess" .
+          mkdir -p resources translations/qtwebengine_locales
+          cp "$QTROOT"/resources/* resources/
+          cp "$QTROOT"/translations/qtwebengine_locales/en-US.pak translations/qtwebengine_locales/
+
+          # Qt plugins
           mkdir -p plugins
-          if [ -d "${{ env.QT_ROOT_DIR }}/plugins/platforms" ]; then
-            cp -r ${{ env.QT_ROOT_DIR }}/plugins/platforms plugins/
-          fi
-          if [ -d "${{ env.QT_ROOT_DIR }}/plugins/multimedia" ]; then
-            cp -r ${{ env.QT_ROOT_DIR }}/plugins/multimedia plugins/
-          fi
-          if [ -d "${{ env.QT_ROOT_DIR }}/plugins/tls" ]; then
-            cp -r ${{ env.QT_ROOT_DIR }}/plugins/tls plugins/
-          fi
+          for d in platforms xcbglintegrations platforminputcontexts platformthemes imageformats iconengines tls multimedia wayland-decoration-client wayland-graphic-integration-client wayland-shell-integration; do
+            if [ -d "$QTROOT/plugins/$d" ]; then cp -r "$QTROOT/plugins/$d" plugins/; fi
+          done
 
-          if [ -d "${{ env.QT_ROOT_DIR }}/libexec" ]; then
-            cp -r ${{ env.QT_ROOT_DIR }}/libexec/* .
-          fi
-          if [ -d "${{ env.QT_ROOT_DIR }}/resources" ]; then
-            mkdir -p resources
-            cp -r ${{ env.QT_ROOT_DIR }}/resources/* resources/
-          fi
+          # Bundle only Qt's own libraries (system libraries stay on the system)
+          export LD_LIBRARY_PATH="$QTROOT/lib"
+          for f in NullA QtWebEngineProcess $(find plugins -name '*.so'); do
+            ldd "$f" | awk '/=> \//{print $3}' | grep "^$QTROOT/" || true
+          done | sort -u | xargs -I{} cp -Ln {} .
+
+          # Tell Qt to look for everything next to the executable
+          printf '%s\n' '[Paths]' 'Prefix = .' 'Libraries = .' 'LibraryExecutables = .' 'Plugins = plugins' 'Data = .' 'Translations = translations' > qt.conf
+
+          # Search the app folder first, then fall back to system libraries
+          patchelf --force-rpath --set-rpath '$ORIGIN' NullA QtWebEngineProcess
+
+          echo "--- Package check"
+          ls -la QtWebEngineProcess qt.conf plugins/platforms resources | head -30
+          ldd NullA | grep -E "Qt6Core|Qt6WebEngineCore"
 
       - name: Create tar.gz package
         run: |
           tar -czf NullA-Linux.tar.gz -C build NullA
+          ls -lh NullA-Linux.tar.gz
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
