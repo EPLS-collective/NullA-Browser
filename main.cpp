@@ -29,10 +29,11 @@ int main(int argc, char *argv[]) {
         // "--disable-frame-rate-limit " // Removes chromium FPS limit (Chromium default: 60)
         "--lang=en-US " // Same language for everyone
         "--disable-dns-prefetch " // Prevents DNS lookups before clicking links
-        "--disable-features=UserAgentClientHint," // Disables Client Hints to reduce fingerprinting
-            "UserAgentClientHintFullVersionList," // Hides detailed browser version from sites
-            "UserAgentClientHintReduced," // Standardizes User-Agent strings
-            "ClientHints," // Disables modern browser-info requests
+        "--disable-features="
+            // "UserAgentClientHint," // Disables Client Hints to reduce fingerprinting
+            // "UserAgentClientHintFullVersionList," // Hides detailed browser version from sites
+            // "UserAgentClientHintReduced," // Standardizes User-Agent strings
+            // "ClientHints," // Disables modern browser-info requests
             "NetworkPrediction," // Disables pre-fetching of web content
             "PrivacySandboxSettings," // Disables Google's "Privacy Sandbox" tracking
             "TopicsAPI," // Blocks ad-tracking interest categorization

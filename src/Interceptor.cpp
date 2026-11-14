@@ -606,10 +606,10 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
     // navigator.userAgentData and the pinned User-Agent.
     info.setHttpHeader(QByteArrayLiteral("Accept-Language"),
                        QByteArrayLiteral("en-US,en;q=0.9"));
-    info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Platform"),
-                       QByteArrayLiteral("\"Linux\""));
-    info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Platform-Version"), QByteArray());
-    info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Model"), QByteArray());
+    // info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Platform"),
+    //                   QByteArrayLiteral("\"Linux\""));
+    // info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Platform-Version"), QByteArray());
+    // info.setHttpHeader(QByteArrayLiteral("Sec-CH-UA-Model"), QByteArray());
 
     // Client Hints from Chromium show real values, make them match the page script
     {
@@ -618,8 +618,8 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
             {"sec-ch-ua-bitness", "\"64\""},
             {"sec-ch-ua-wow64", "?0"},
             {"sec-ch-ua-form-factors", "\"Desktop\""},
-            {"sec-ch-device-memory", "8"},
-            {"device-memory", "8"},
+            {"sec-ch-device-memory", "4"},
+            {"device-memory", "4"},
             {"rtt", "50"},
             {"downlink", "10"},
             {"ect", "4g"},

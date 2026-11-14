@@ -22,6 +22,7 @@
 #include <QWebEngineScript>
 #include <QWebEngineScriptCollection>
 #include <QWebEngineProfile>
+#include <QWebEngineClientHints>
 #include <QWebEnginePage>
 #include <QCheckBox>
 #include <QVBoxLayout>
@@ -115,6 +116,11 @@ Browser::Browser(const QString &initialUrl) {
     // Profile and storage isolation
     profile = new QWebEngineProfile("NullA", this);
     profile->setPersistentCookiesPolicy(QWebEngineProfile::NoPersistentCookies);
+    // Qt generates matching Sec-CH-UA headers and navigator.userAgentData. The low-entropy
+    // hints (brand, mobile, platform) are always sent like in real Chrome, the
+    // high-entropy ones (versions, model, arch...) are not sent at all.
+    profile->clientHints()->setAllClientHintsEnabled(false);
+    profile->clientHints()->setPlatform(QStringLiteral("Linux"));
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/Data";
     QDir().mkpath(dataPath);
     profile->setPersistentStoragePath(dataPath);
@@ -199,7 +205,7 @@ Browser::Browser(const QString &initialUrl) {
     QFontDatabase::removeAllApplicationFonts();
 
     // Strict WebEngine security hardening
-    profile->settings()->setAttribute(QWebEngineSettings::Accelerated2dCanvasEnabled, false); // Draw 2D canvas on the CPU so GPU differences do not show up
+    profile->settings()->setAttribute(QWebEngineSettings::Accelerated2dCanvasEnabled, true); // Draw 2D canvas on the CPU so GPU differences do not show up
     profile->settings()->setAttribute(QWebEngineSettings::WebRTCPublicInterfacesOnly, true); // Prevent local IP leaks
     profile->settings()->setAttribute(QWebEngineSettings::FullScreenSupportEnabled, true);
     profile->settings()->setAttribute(QWebEngineSettings::JavascriptCanOpenWindows, false); // Block pop-ups

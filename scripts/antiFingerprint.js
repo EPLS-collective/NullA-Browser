@@ -561,12 +561,19 @@
             if (typeof origHigh === 'function') {
                 defineMethod(UAD, 'getHighEntropyValues', function() {
                     return origHigh.apply(this, arguments).then((values) => {
-                        return Object.assign({}, values, {
+                        const norm = (v) => String(v).replace(/^(\d+)[\d.]*$/, '$1.0.0.0');
+                        const out = Object.assign({}, values, {
                             platform: PERSONA.platform,
                             platformVersion: '',
                             model: '',
                             wow64: false
                         });
+                        if (out.uaFullVersion) out.uaFullVersion = norm(out.uaFullVersion);
+                        if (Array.isArray(out.fullVersionList)) {
+                            out.fullVersionList = out.fullVersionList.map(
+                                (b) => ({ brand: b.brand, version: norm(b.version) }));
+                        }
+                        return out;
                     });
                 });
             }
