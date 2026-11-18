@@ -10,7 +10,6 @@
 #include <QHostAddress>
 #include <QByteArray>
 #include <QSet>
-#include <QRegularExpression>
 #include <chrono>
 
 Interceptor::Interceptor(QObject* parent)
@@ -624,8 +623,6 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
             {"downlink", "10"},
             {"ect", "4g"},
         };
-        static const QRegularExpression versionPart(QStringLiteral("v=\"(\\d+)[\\d.]*\""));
-        static const QRegularExpression singleVersion(QStringLiteral("^\"(\\d+)[\\d.]*\"$"));
 
         const QHash<QByteArray, QByteArray> sent = info.httpHeaders();
         for (auto it = sent.cbegin(); it != sent.cend(); ++it) {
@@ -633,14 +630,6 @@ void Interceptor::interceptRequest(QWebEngineUrlRequestInfo &info) {
             const auto fixed = fixedHints.constFind(name);
             if (fixed != fixedHints.cend()) {
                 info.setHttpHeader(it.key(), fixed.value());
-            } else if (name == "sec-ch-ua-full-version-list") {
-                QString v = QString::fromLatin1(it.value());
-                v.replace(versionPart, QStringLiteral("v=\"\\1.0.0.0\""));
-                info.setHttpHeader(it.key(), v.toLatin1());
-            } else if (name == "sec-ch-ua-full-version") {
-                QString v = QString::fromLatin1(it.value());
-                v.replace(singleVersion, QStringLiteral("\"\\1.0.0.0\""));
-                info.setHttpHeader(it.key(), v.toLatin1());
             }
         }
     }

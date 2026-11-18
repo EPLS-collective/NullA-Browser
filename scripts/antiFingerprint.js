@@ -1,26 +1,36 @@
 (function() {
     'use strict';
 
-    // Make patched functions survive toString(). The label is per function, so
-    // accessors still read "function get hardwareConcurrency() { [native code] }"
-    // Patched functions have to still print as native in toString().
     const rawToString = Function.prototype.toString;
     const patchedSet = new WeakSet();
     const patchedLabels = new WeakMap();
-    Function.prototype.toString = function() {
+
+    const asMethod = (name, arity, impl) => {
+        const holder = { [name](...args) { return impl.apply(this, args); } };
+        const fn = holder[name];
+        try {
+            Object.defineProperty(fn, 'name', { value: name, configurable: true });
+            Object.defineProperty(fn, 'length', { value: arity, configurable: true });
+        } catch (e) {}
+        return fn;
+    };
+
+    const seal = (fn, label, arity, isConstructor) => {
+        const name = label || '';
+        const shaped = isConstructor
+            ? fn
+            : asMethod(name, typeof arity === 'number' ? arity : fn.length, fn);
+        patchedSet.add(shaped);
+        patchedLabels.set(shaped, name);
+        return shaped;
+    };
+
+    Function.prototype.toString = seal(function() {
         if (patchedSet.has(this)) {
             return 'function ' + (patchedLabels.get(this) || '') + '() { [native code] }';
         }
         return rawToString.apply(this, arguments);
-    };
-    // '' for plain functions, 'get x' for accessors
-    const seal = (fn, label) => {
-        patchedSet.add(fn);
-        patchedLabels.set(fn, label || '');
-        return fn;
-    };
-    // This override has to look native too.
-    seal(Function.prototype.toString, 'toString');
+    }, 'toString', 0);
 
     // Attributes are enumerable accessors on the prototype. An own property on
     // the instance would show up in hasOwnProperty and getOwnPropertyNames.
@@ -38,10 +48,10 @@
             });
         } catch (e) {}
     };
-    const defineMethod = (target, prop, fn) => {
+    const defineMethod = (target, prop, fn, arity) => {
         try {
             Object.defineProperty(target, prop, {
-                value: seal(fn, prop),
+                value: seal(fn, prop, arity),
                 writable: true,
                 enumerable: true,
                 configurable: true
@@ -420,7 +430,7 @@
                 const key = PRECISION_BY_ENUM[precision];
                 if (!key) return oldPrecision.apply(this, arguments);
                 return protoShaped(WebGLShaderPrecisionFormat.prototype, PRECISION[key]);
-            }, 'getShaderPrecisionFormat');
+            }, 'getShaderPrecisionFormat', 2);
         }
 
         // Only the request hint is pinned; the rest describe what the page asked for.
@@ -561,21 +571,14 @@
             if (typeof origHigh === 'function') {
                 defineMethod(UAD, 'getHighEntropyValues', function() {
                     return origHigh.apply(this, arguments).then((values) => {
-                        const norm = (v) => String(v).replace(/^(\d+)[\d.]*$/, '$1.0.0.0');
-                        const out = Object.assign({}, values, {
+                        return Object.assign({}, values, {
                             platform: PERSONA.platform,
                             platformVersion: '',
                             model: '',
                             wow64: false
                         });
-                        if (out.uaFullVersion) out.uaFullVersion = norm(out.uaFullVersion);
-                        if (Array.isArray(out.fullVersionList)) {
-                            out.fullVersionList = out.fullVersionList.map(
-                                (b) => ({ brand: b.brand, version: norm(b.version) }));
-                        }
-                        return out;
                     });
-                });
+                }, 1);
             }
         } catch (e) {}
     }
@@ -630,7 +633,7 @@
             });
             Object.defineProperty(WrappedFontFace, 'name', { value: 'FontFace', configurable: true });
             Object.defineProperty(WrappedFontFace, 'length', { value: OrigFontFace.length, configurable: true });
-            window.FontFace = seal(WrappedFontFace, 'FontFace');
+            window.FontFace = seal(WrappedFontFace, 'FontFace', undefined, true);
         } catch (e) {}
     }
 
@@ -668,7 +671,7 @@
             Wrapped.supportedLocalesOf = Orig.supportedLocalesOf;
             Object.defineProperty(Wrapped, 'name', { value: name, configurable: true });
             Object.defineProperty(Wrapped, 'length', { value: Orig.length, configurable: true });
-            Intl[name] = seal(Wrapped, name);
+            Intl[name] = seal(Wrapped, name, undefined, true);
         } catch (e) {}
     };
     ['DateTimeFormat', 'NumberFormat', 'Collator', 'RelativeTimeFormat',
@@ -758,11 +761,12 @@
         if (typeof d.value !== 'function') return;
         const oMethod = d.value;
         defineMethod(DTF, prop, function() {
+            oMethod.apply(this);
             const u = utcFormatter(this);
             const target = u !== null ? u : utcDefault;
             try { return transform(oMethod.apply(target, argsOf.apply(null, arguments))); }
             catch (e) { return transform(oMethod.apply(this, arguments)); }
-        });
+        }, arity);
     };
 
     patchFormatMethod('format', 1, sanitizeTz);
@@ -770,7 +774,11 @@
     patchFormatMethod('formatRange', 2, sanitizeTz);
     patchFormatMethod('formatRangeToParts', 2, sanitizeParts);
 
-    Date.prototype.getTimezoneOffset = seal(function() { return 0; }, 'getTimezoneOffset');
+    const origTzOffset = Date.prototype.getTimezoneOffset;
+    Date.prototype.getTimezoneOffset = seal(function() {
+        origTzOffset.call(this);
+        return 0;
+    }, 'getTimezoneOffset');
 
     // toLocaleString() reads the implementation default locale directly, so the
     // Intl constructor patch never reaches it.
@@ -859,9 +867,9 @@
     // Chromium clamps it. Grid the value: still monotonic, far less precise.
     if (window.Performance && typeof performance !== 'undefined') {
         try {
-            const origNow = performance.now.bind(performance);
+            const origNow = Performance.prototype.now;
             defineMethod(Performance.prototype, 'now', function() {
-                const t = origNow();
+                const t = origNow.call(this);
                 return Math.floor(t * 10) / 10;
             });
         } catch (e) {}
