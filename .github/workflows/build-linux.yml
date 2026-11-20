@@ -25,9 +25,9 @@ jobs:
           sudo apt-get install -y ninja-build libegl1-mesa-dev libgl1-mesa-dev libxcb-cursor0 patchelf
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v3
+        uses: jurplel/install-qt-action@v4
         with:
-          version: "6.10.2"
+          version: "6.11.3"
           host: linux
           target: desktop
           arch: "linux_gcc_64"
@@ -43,7 +43,7 @@ jobs:
         run: |
           set -e
 
-          QTROOT="$(readlink -f "${QT_ROOT_DIR:-$GITHUB_WORKSPACE/../Qt/6.10.2/gcc_64}")"
+          QTROOT="$(readlink -f "${QT_ROOT_DIR:-$GITHUB_WORKSPACE/../Qt/6.11.3/gcc_64}")"
           echo "Qt root: $QTROOT"
           if [ ! -x "$QTROOT/libexec/QtWebEngineProcess" ]; then
             echo "ERROR: QtWebEngineProcess not found under $QTROOT"

@@ -31,9 +31,9 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v3
+        uses: jurplel/install-qt-action@v4
         with:
-          version: "6.10.2"
+          version: "6.11.3"
           host: windows
           target: desktop
           arch: "win64_msvc2022_64"
@@ -42,12 +42,12 @@ jobs:
       - name: Add Qt bin to PATH
         shell: powershell
         run: |
-          $qtbin = "D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64/bin"
+          $qtbin = "D:/a/NullA-Browser/Qt/6.11.3/msvc2022_64/bin"
           $env:PATH = "$qtbin;$env:PATH"
 
       - name: Configure CMake
         shell: cmd
-        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64" -DMOC_EXECUTABLE="D:/a/NullA-Browser/Qt/6.10.2/msvc2022_64/bin/moc.exe" -DNULLA_VERSION="${{ github.event.inputs.version }}"
+        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="D:/a/NullA-Browser/Qt/6.11.3/msvc2022_64" -DMOC_EXECUTABLE="D:/a/NullA-Browser/Qt/6.11.3/msvc2022_64/bin/moc.exe" -DNULLA_VERSION="${{ github.event.inputs.version }}"
 
       - name: Build
         run: cmake --build build --config Release
