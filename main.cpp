@@ -9,9 +9,44 @@
 #include <QStyleFactory>
 #include <QLocalSocket>
 #include <QLocalServer>
+#include <cstdio>
 #include "include/Browser.h"
 
+namespace {
+constexpr const char *kUsage =
+    "Usage: nulla [options] [URL]\n"
+    "\n"
+    "Options:\n"
+    "  -h, --help     Show this help message and exit\n"
+    "  -v, --version  Show the version and exit\n"
+    "  --             Treat all following arguments as a URL\n";
+}
+
 int main(int argc, char *argv[]) {
+    QString startUrl;
+    bool urlOnly = false;
+    for (int i = 1; i < argc; ++i) {
+        const QString arg = QString::fromLocal8Bit(argv[i]);
+        if (!urlOnly && arg == QStringLiteral("--")) {
+            urlOnly = true;
+            continue;
+        }
+        if (!urlOnly && (arg == QStringLiteral("-h") || arg == QStringLiteral("--help"))) {
+            std::fputs(kUsage, stdout);
+            return 0;
+        }
+        if (!urlOnly && (arg == QStringLiteral("-v") || arg == QStringLiteral("--version"))) {
+            std::printf("NullA Browser %s\n", APP_VERSION);
+            return 0;
+        }
+        if (!urlOnly && arg.startsWith(QLatin1Char('-'))) {
+            std::fprintf(stderr, "Unknown option: %s\n%s", argv[i], kUsage);
+            return 1;
+        }
+        if (startUrl.isEmpty()) {
+            startUrl = arg;
+        }
+    }
 
     // REQUIRED ON WINDOWS: Ensures shared OpenGL contexts between the UI and QtWebEngine (Chromium render processes).
     // Without this, the application immediately throws an Access Violation (0xc0000005) on Windows display drivers.
@@ -75,7 +110,6 @@ int main(int argc, char *argv[]) {
     app.setStyle(QStyleFactory::create("Fusion"));
 
     QString serverName = "NullA_Browser_Server";
-    QString startUrl = (argc > 1) ? QString::fromLocal8Bit(argv[1]) : "";
 
     // Single Instance Logic: Check if the browser is already running
     QLocalSocket socket;

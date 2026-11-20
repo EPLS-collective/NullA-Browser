@@ -41,6 +41,8 @@ Make sure `~/.local/bin` is in your `PATH`, then launch it with:
 
 ```sh
 nulla
+nulla https://example.com
+nulla --help
 ```
 
 ---

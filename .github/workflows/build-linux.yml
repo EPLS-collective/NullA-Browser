@@ -27,7 +27,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.11.3"
+          version: "6.10.3"
           host: linux
           target: desktop
           arch: "linux_gcc_64"
@@ -43,7 +43,7 @@ jobs:
         run: |
           set -e
 
-          QTROOT="$(readlink -f "${QT_ROOT_DIR:-$GITHUB_WORKSPACE/../Qt/6.11.3/gcc_64}")"
+          QTROOT="$(readlink -f "${QT_ROOT_DIR:-$GITHUB_WORKSPACE/../Qt/6.10.3/gcc_64}")"
           echo "Qt root: $QTROOT"
           if [ ! -x "$QTROOT/libexec/QtWebEngineProcess" ]; then
             echo "ERROR: QtWebEngineProcess not found under $QTROOT"
@@ -66,9 +66,7 @@ jobs:
 
           # Qt plugins
           mkdir -p plugins
-          for d in platforms xcbglintegrations platforminputcontexts platformthemes imageformats iconengines tls multimedia wayland-decoration-client wayland-graphic-integration-client wayland-shell-integration; do
-            if [ -d "$QTROOT/plugins/$d" ]; then cp -r "$QTROOT/plugins/$d" plugins/; fi
-          done
+          cp -r "$QTROOT/plugins/." plugins/
 
           # Bundle only Qt's own libraries (system libraries stay on the system)
           export LD_LIBRARY_PATH="$QTROOT/lib"
@@ -81,10 +79,21 @@ jobs:
 
           # Search the app folder first, then fall back to system libraries
           patchelf --force-rpath --set-rpath '$ORIGIN' NullA QtWebEngineProcess
+          find . -maxdepth 1 -name '*.so*' -exec patchelf --force-rpath --set-rpath '$ORIGIN' {} +
+          find plugins -name '*.so' -exec patchelf --force-rpath --set-rpath '$ORIGIN/../..' {} +
 
           echo "--- Package check"
           ls -la QtWebEngineProcess qt.conf plugins/platforms resources | head -30
           ldd NullA | grep -E "Qt6Core|Qt6WebEngineCore"
+
+          echo "--- Startup smoke test"
+          smoke_status=0
+          timeout 10s env QT_QPA_PLATFORM=offscreen ./NullA >/tmp/nulla-smoke.log 2>&1 || smoke_status=$?
+          if [ "$smoke_status" -eq 134 ] || [ "$smoke_status" -eq 139 ]; then
+            cat /tmp/nulla-smoke.log
+            echo "ERROR: packaged browser crashed on startup"
+            exit 1
+          fi
 
       - name: Create tar.gz package
         run: |

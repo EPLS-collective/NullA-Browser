@@ -157,8 +157,10 @@ void UpdateChecker::downloadUpdate(const QString &downloadUrl) {
 }
 
 void UpdateChecker::installUpdate(const QString &archivePath) {
-    const QString appDir = QCoreApplication::applicationDirPath();
-    const QString appExe = QCoreApplication::applicationFilePath();
+    const QString rawAppExe = QCoreApplication::applicationFilePath();
+    const QString canonicalAppExe = QFileInfo(rawAppExe).canonicalFilePath();
+    const QString appExe = canonicalAppExe.isEmpty() ? rawAppExe : canonicalAppExe;
+    const QString appDir = QFileInfo(appExe).absolutePath();
     const QString appExeName = QFileInfo(appExe).fileName();
     const QString tempBase = privateUpdateDir();
     const QString extractDir = QDir(tempBase).filePath("nulla_update_extracted");
