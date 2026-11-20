@@ -374,7 +374,7 @@ Browser::Browser(const QString &initialUrl) {
     }
 
     suggestionList = new QListWidget(this);
-    suggestionList->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
+    suggestionList->setAttribute(Qt::WA_ShowWithoutActivating);
     suggestionList->setContextMenuPolicy(Qt::CustomContextMenu);
     suggestionList->setFocusPolicy(Qt::NoFocus);
     suggestionList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -1478,7 +1478,7 @@ void Browser::resizeEvent(QResizeEvent* e) {
 
     if (suggestionList && suggestionList->isVisible() && urlBar) {
         suggestionList->setFixedWidth(urlBar->width());
-        suggestionList->move(urlBar->mapToGlobal(QPoint(0, urlBar->height())));
+        positionSuggestionList();
     }
 
     if (m_hoverOverlay && m_hoverOverlay->isVisible()) {
@@ -1491,9 +1491,17 @@ void Browser::resizeEvent(QResizeEvent* e) {
 void Browser::moveEvent(QMoveEvent *event) {
     QMainWindow::moveEvent(event);
 
-    if (suggestionList && suggestionList->isVisible() && urlBar) {
-        suggestionList->move(urlBar->mapToGlobal(QPoint(0, urlBar->height())));
+    if (suggestionList && suggestionList->isVisible()) {
+        positionSuggestionList();
     }
+}
+
+void Browser::positionSuggestionList()
+{
+    if (!suggestionList || !urlBar) return;
+
+    suggestionList->move(urlBar->mapTo(this, QPoint(0, urlBar->height())));
+    suggestionList->raise();
 }
 
 void Browser::positionHoverOverlay(QWebEngineView* view) {
@@ -1691,8 +1699,7 @@ void Browser::updateSuggestions(const QString &text)
         listHeight = qMin(listHeight, 300);
         suggestionList->setFixedHeight(listHeight);
 
-        QPoint pos = urlBar->mapToGlobal(QPoint(0, urlBar->height()));
-        suggestionList->move(pos);
+        positionSuggestionList();
         suggestionList->show();
         suggestionList->raise();
     } else {

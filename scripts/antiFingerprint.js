@@ -71,7 +71,7 @@
 
     // Values sit on an intermediate prototype: instanceof works and the
     // own-property list stays empty.
-    const protoShaped = (nativeProto, props) => {
+    const protoShaped = (nativeProto, props, base) => {
         try {
             const fakeProto = Object.create(nativeProto);
             for (const key of Object.keys(props)) {
@@ -82,7 +82,9 @@
                     configurable: true
                 });
             }
-            return Object.create(fakeProto);
+            const instance = base || Object.create(null);
+            Object.setPrototypeOf(instance, fakeProto);
+            return instance;
         } catch (e) {
             return null;
         }
@@ -184,7 +186,7 @@
             saveData: false,
             type: 'ethernet',
             onchange: null
-        });
+        }, new EventTarget());
         if (conn) defineGetter(Navigator.prototype, 'connection', conn);
     }
 
@@ -198,7 +200,7 @@
             onchargingtimechange: null,
             ondischargingtimechange: null,
             onlevelchange: null
-        });
+        }, new EventTarget());
         if (battery) {
             defineMethod(Navigator.prototype, 'getBattery', function() {
                 return Promise.resolve(battery);
@@ -494,7 +496,7 @@
                     ? 'landscape-primary'
                     : 'portrait-primary',
                 angle: 0
-            });
+            }, new EventTarget());
             if (orientation) defineGetter(Screen.prototype, 'orientation', orientation);
         }
     }

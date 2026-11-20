@@ -102,6 +102,7 @@ private:
     CookieManager* cookieManager = nullptr;
     QSettings* settings = nullptr;
     QListWidget* suggestionList = nullptr;
+    void positionSuggestionList();
     QList<QPair<QString, QString>> bookmarks;
     bool maydayActive = false;
     QMediaPlayer* maydayPlayer = nullptr;
