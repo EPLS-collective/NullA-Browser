@@ -115,7 +115,8 @@ void AdBlock::applyFilterData(const QByteArray &data) {
     // Process filter rules in a background thread to keep UI responsive
     QThreadPool::globalInstance()->start([this, data]() {
             // modifiers we can't safely enforce (need body/header rewrite,
-            // or reference other rules), drop the rule instead of guessing
+            // or reference other rules), drop the rule instead of guessing.
+            // guessing is ALWAYS worse
             static const QSet<QString> kUnsupportedModifiers = {
                 "badfilter", "csp", "removeparam", "redirect", "redirect-rule",
                 "replace", "cookie", "empty", "mp4", "cname", "elemhide",

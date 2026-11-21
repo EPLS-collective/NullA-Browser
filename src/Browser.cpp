@@ -24,8 +24,10 @@
 #include <QWebEngineProfile>
 #include <QWebEngineClientHints>
 #include <QWebEnginePage>
+#include <QWebEngineFindTextResult>
 #include <QCheckBox>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QAction>
 #include <QDebug>
 #include <QApplication>
@@ -100,6 +102,33 @@ namespace {
         p.drawPath(path);
         p.end();
 
+        return QIcon(pm);
+    }
+
+    enum class FindGlyph { Previous, Next, Close };
+
+    QIcon makeFindIcon(FindGlyph glyph, const QColor &color) {
+        const int size = 16;
+        const int pad = 4;
+        const int mid = size / 2;
+
+        QPixmap pm(size, size);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(color, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+
+        if (glyph == FindGlyph::Close) {
+            p.drawLine(pad, pad, size - pad, size - pad);
+            p.drawLine(size - pad, pad, pad, size - pad);
+        } else {
+            const int tipY = (glyph == FindGlyph::Previous) ? (pad + 1) : (size - pad - 1);
+            const int baseY = (glyph == FindGlyph::Previous) ? (size - pad - 1) : (pad + 1);
+            p.drawLine(pad, baseY, mid, tipY);
+            p.drawLine(mid, tipY, size - pad, baseY);
+        }
+
+        p.end();
         return QIcon(pm);
     }
 }
@@ -409,6 +438,48 @@ Browser::Browser(const QString &initialUrl) {
     m_hoverOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
     m_hoverOverlay->hide();
 
+    findBar = new QWidget(this);
+    findBar->setObjectName("findBar");
+
+    QHBoxLayout* findLayout = new QHBoxLayout(findBar);
+    findLayout->setContentsMargins(6, 4, 6, 4);
+    findLayout->setSpacing(4);
+
+    findEdit = new QLineEdit(findBar);
+    findEdit->setObjectName("findEdit");
+    findEdit->setPlaceholderText(QString(Localization::qget("search")));
+    findEdit->setClearButtonEnabled(true);
+    findLayout->addWidget(findEdit, 1);
+
+    findStatus = new QLabel(findBar);
+    findStatus->setObjectName("findStatus");
+    findStatus->setMinimumWidth(52);
+    findStatus->setAlignment(Qt::AlignCenter);
+    findStatus->setText("0/0");
+    findLayout->addWidget(findStatus);
+
+    findPrevButton = new QToolButton(findBar);
+    findPrevButton->setObjectName("findPrev");
+    findPrevButton->setToolTip("Previous match");
+    findLayout->addWidget(findPrevButton);
+
+    findNextButton = new QToolButton(findBar);
+    findNextButton->setObjectName("findNext");
+    findNextButton->setToolTip("Next match");
+    findLayout->addWidget(findNextButton);
+
+    findCloseButton = new QToolButton(findBar);
+    findCloseButton->setObjectName("findClose");
+    findCloseButton->setToolTip("Close");
+    findLayout->addWidget(findCloseButton);
+
+    connect(findEdit, &QLineEdit::textChanged, this, [this]() { runFind(); });
+    connect(findPrevButton, &QToolButton::clicked, this, [this]() { runFind(true); });
+    connect(findNextButton, &QToolButton::clicked, this, [this]() { runFind(false); });
+    connect(findCloseButton, &QToolButton::clicked, this, [this]() { hideFindBar(); });
+
+    findBar->hide();
+
     applyTheme(savedTheme);
 
     // Keyboard shortcuts
@@ -432,6 +503,10 @@ Browser::Browser(const QString &initialUrl) {
             this->showFullScreen();
         }
     });
+
+    // Find in page, Enter steps forward and Shift+Enter walks back
+    QShortcut* findKey = new QShortcut(QKeySequence("Ctrl+F"), this);
+    connect(findKey, &QShortcut::activated, this, [this]() { showFindBar(); });
 
     // Download cancellation logic
     QShortcut* cancelKey = new QShortcut(QKeySequence("Ctrl+Shift+X"), this);
@@ -579,8 +654,8 @@ void Browser::applyTheme(int themeIndex) {
     // Hover URL overlay follows the active theme
     if (m_hoverOverlay) {
         m_hoverOverlay->setStyleSheet(isDark
-            ? "background-color: rgba(28, 28, 28, 200); color: #e6e6e6; padding: 2px 6px;"
-            : "background-color: rgba(245, 245, 245, 220); color: #323232; padding: 2px 6px;");
+            ? "background-color: #1c1c1c; color: #e6e6e6; padding: 2px 6px;"
+            : "background-color: #f5f5f5; color: #323232; padding: 2px 6px;");
     }
 
     // Toolbar
@@ -709,6 +784,58 @@ void Browser::applyTheme(int themeIndex) {
         .arg(isDark ? "#4a4a4a" : "#e8e8e8")
         .arg(isDark ? "#0078d4" : "#0078d4")
         .arg(isDark ? "#ffffff" : "#ffffff"));
+    }
+
+    if (findBar) {
+        // drawn here so the find buttons match the hand-painted tab close X
+        const QColor findIconColor(themeIconColor);
+        findPrevButton->setIcon(makeFindIcon(FindGlyph::Previous, findIconColor));
+        findNextButton->setIcon(makeFindIcon(FindGlyph::Next, findIconColor));
+        findCloseButton->setIcon(makeFindIcon(FindGlyph::Close, findIconColor));
+        findPrevButton->setIconSize(QSize(16, 16));
+        findNextButton->setIconSize(QSize(16, 16));
+        findCloseButton->setIconSize(QSize(16, 16));
+
+        findBar->setStyleSheet(QString(R"(
+            QWidget#findBar {
+                background-color: %1;
+                border-top: 1px solid %2;
+            }
+            QLineEdit#findEdit {
+                background-color: %6;
+                color: %3;
+                border: 2px solid %7;
+                border-radius: 5px;
+                font-size: 12px;
+                padding: 2px 6px;
+                selection-background-color: #0078d4;
+            }
+            QLineEdit#findEdit:focus {
+                border: 2px solid #0078d4;
+            }
+            QLabel#findStatus {
+                color: %4;
+                font-size: 11px;
+            }
+            QToolButton {
+                background: transparent;
+                color: %3;
+                border: none;
+                padding: 2px 5px;
+                font-size: 12px;
+            }
+            QToolButton:hover {
+                background-color: %5;
+                border-radius: 3px;
+            }
+        )")
+        .arg(isDark ? "#2c2c2c" : "#ececec")
+        .arg(isDark ? "#555555" : "#cccccc")
+        .arg(isDark ? "#e6e6e6" : "#333333")
+        .arg(isDark ? "#aaaaaa" : "#666666")
+        .arg(isDark ? "#3a3a3a" : "#dcdcdc")
+        .arg(isDark ? "#3a3a3a" : "#ffffff")
+        .arg(isDark ? "#555555" : "#cccccc"));
     }
 
     // Plus (New Tab) Button
@@ -1076,6 +1203,8 @@ void Browser::positionUpdateBadge() {
 void Browser::handleTabChange(int index) {
     if (!renderController) return;
     if (index == -1) return;
+    hideFindBar();
+
     TabPage* page = qobject_cast<TabPage*>(tabWidget->widget(index));
     if (page) {
         urlBar->setText(page->currentUrl().toString());
@@ -1486,6 +1615,8 @@ void Browser::resizeEvent(QResizeEvent* e) {
             positionHoverOverlay(p->webView());
         }
     }
+
+    if (findBar && findBar->isVisible()) positionFindBar();
 }
 
 void Browser::moveEvent(QMoveEvent *event) {
@@ -1507,8 +1638,89 @@ void Browser::positionSuggestionList()
 void Browser::positionHoverOverlay(QWebEngineView* view) {
     if (!m_hoverOverlay || !view) return;
     int h = m_hoverOverlay->sizeHint().height();
-    QPoint topLeft = view->mapTo(this, QPoint(0, view->height() - h));
+    // stay above the find bar when it is docked
+    int findH = (findBar && findBar->isVisible()) ? findBar->sizeHint().height() : 0;
+    QPoint topLeft = view->mapTo(this, QPoint(0, view->height() - h - findH));
     m_hoverOverlay->setGeometry(topLeft.x(), topLeft.y(), view->width(), h);
+}
+
+void Browser::showFindBar() {
+    if (!findBar || !findEdit) return;
+
+    TabPage* page = currentTabPage();
+    if (!page || page->currentIndex() == 0) return;
+
+    findBar->show();
+    positionFindBar();
+    if (m_hoverOverlay && m_hoverOverlay->isVisible()) positionHoverOverlay(page->webView());
+    findEdit->setFocus();
+    findEdit->selectAll();
+
+    if (!findEdit->text().isEmpty()) runFind();
+}
+
+void Browser::hideFindBar() {
+    if (!findBar) return;
+
+    ++findRequestId;
+    findBar->hide();
+    findStatus->setText("0/0");
+
+    if (TabPage* page = currentTabPage()) {
+        if (QWebEnginePage* webPage = page->webView()->page()) {
+            webPage->findText(QString());
+        }
+        if (m_hoverOverlay && m_hoverOverlay->isVisible()) positionHoverOverlay(page->webView());
+    }
+}
+
+void Browser::runFind(bool backward) {
+    if (!findEdit || !findStatus) return;
+
+    TabPage* page = currentTabPage();
+    if (!page || page->currentIndex() == 0) return;
+
+    QWebEnginePage* webPage = page->webView()->page();
+    if (!webPage) return;
+
+    const QString term = findEdit->text();
+    const int request = ++findRequestId;
+    if (term.isEmpty()) {
+        findStatus->setText("0/0");
+        webPage->findText(QString());
+        return;
+    }
+
+    QWebEnginePage::FindFlags flags;
+    if (backward) flags |= QWebEnginePage::FindBackward;
+
+    // findText() is async, the little counter just follows its callback
+    webPage->findText(term, flags, [this, request](const QWebEngineFindTextResult& result) {
+        if (!findStatus || request != findRequestId) return;
+
+        const int total = result.numberOfMatches();
+        if (total <= 0) {
+            findStatus->setText("0/0");
+            return;
+        }
+
+        findStatus->setText(QString("%1/%2")
+            .arg(qMax(0, result.activeMatch()) + 1)
+            .arg(total));
+    });
+}
+
+void Browser::positionFindBar() {
+    if (!findBar) return;
+
+    TabPage* page = currentTabPage();
+    if (!page) return;
+
+    QWebEngineView* view = page->webView();
+    const int h = findBar->sizeHint().height();
+    QPoint bottomLeft = view->mapTo(this, QPoint(0, view->height() - h));
+    findBar->setGeometry(bottomLeft.x(), bottomLeft.y(), view->width(), h);
+    findBar->raise();
 }
 
 void Browser::showEvent(QShowEvent* e) {
@@ -1535,6 +1747,20 @@ bool Browser::eventFilter(QObject* obj, QEvent* ev) {
 
         if (!clickedInsideSuggestion && !clickedUrlBar) {
             suggestionList->hide();
+        }
+    }
+
+    if (obj == findEdit && ev->type() == QEvent::KeyPress) {
+        QKeyEvent* ke = static_cast<QKeyEvent*>(ev);
+
+        if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
+            runFind((ke->modifiers() & Qt::ShiftModifier) != 0);
+            return true;
+        }
+
+        if (ke->key() == Qt::Key_Escape) {
+            hideFindBar();
+            return true;
         }
     }
 

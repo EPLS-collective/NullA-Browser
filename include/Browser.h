@@ -36,6 +36,8 @@
 #include <QWebEnginePage>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
+#include <QToolButton>
 
 class AdBlock;
 class ExtensionManager;
@@ -121,6 +123,18 @@ private:
 
     QLabel* m_hoverOverlay = nullptr;
     void positionHoverOverlay(QWebEngineView* view);
+
+    QWidget* findBar = nullptr;
+    QLineEdit* findEdit = nullptr;
+    QLabel* findStatus = nullptr;
+    QToolButton* findPrevButton = nullptr;
+    QToolButton* findNextButton = nullptr;
+    QToolButton* findCloseButton = nullptr;
+    int findRequestId = 0;
+    void showFindBar();
+    void hideFindBar();
+    void runFind(bool backward = false);
+    void positionFindBar();
 
     UpdateChecker* m_updateChecker = nullptr;
     QTimer* updateCheckTimer = nullptr;
